@@ -166,11 +166,16 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
       p.background.toLowerCase() === draftTheme.backgroundColor.toLowerCase()
   )
 
-  const handleLiveColorChange = (field: string, val: string) => {
-    const next = { ...draftTheme, [field]: val }
-    setDraftTheme(next)
-    // Live preview on DOM
-    updateThemeConfig({ [field]: val }, true)
+  const handleDraftColorInput = (field: string, val: string) => {
+    // Update local form state immediately without flashing the DOM while cursor is moving in picker
+    setDraftTheme((prev) => ({ ...prev, [field]: val }))
+  }
+
+  const handleApplyColorCommit = (field: string, val: string) => {
+    // When the color picker window closes (onBlur) or a value is chosen, reflect to DOM
+    if (val && (val.startsWith('#') || val.length >= 4)) {
+      updateThemeConfig({ [field]: val }, true)
+    }
   }
 
   const handleLiveModeToggle = (nextMode: 'light' | 'dark') => {
@@ -296,7 +301,7 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
         </div>
       </div>
 
-      {/* COLLAPSED VIEW: Active Theme Card with "Change Theme" Button */}
+      {/* COLLAPSED VIEW: Summary card when closed */}
       {!isOpen && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-surface-container-low rounded-DEFAULT border border-outline-variant/40 animate-in fade-in duration-150">
           <div className="flex items-center gap-3 min-w-0">
@@ -468,14 +473,16 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
                     <input
                       type="color"
                       value={draftTheme.primaryColor}
-                      onChange={(e) => handleLiveColorChange('primaryColor', e.target.value)}
+                      onChange={(e) => handleDraftColorInput('primaryColor', e.target.value)}
+                      onBlur={(e) => handleApplyColorCommit('primaryColor', e.target.value)}
                       className="absolute -inset-2 w-14 h-14 cursor-pointer border-0 p-0"
                     />
                   </div>
                   <input
                     type="text"
                     value={draftTheme.primaryColor}
-                    onChange={(e) => handleLiveColorChange('primaryColor', e.target.value)}
+                    onChange={(e) => handleDraftColorInput('primaryColor', e.target.value)}
+                    onBlur={(e) => handleApplyColorCommit('primaryColor', e.target.value)}
                     placeholder="#000000"
                     className="w-full p-2 px-2.5 bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT font-mono text-xs text-on-surface uppercase focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs"
                   />
@@ -492,14 +499,16 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
                     <input
                       type="color"
                       value={draftTheme.secondaryColor}
-                      onChange={(e) => handleLiveColorChange('secondaryColor', e.target.value)}
+                      onChange={(e) => handleDraftColorInput('secondaryColor', e.target.value)}
+                      onBlur={(e) => handleApplyColorCommit('secondaryColor', e.target.value)}
                       className="absolute -inset-2 w-14 h-14 cursor-pointer border-0 p-0"
                     />
                   </div>
                   <input
                     type="text"
                     value={draftTheme.secondaryColor}
-                    onChange={(e) => handleLiveColorChange('secondaryColor', e.target.value)}
+                    onChange={(e) => handleDraftColorInput('secondaryColor', e.target.value)}
+                    onBlur={(e) => handleApplyColorCommit('secondaryColor', e.target.value)}
                     placeholder="#006a63"
                     className="w-full p-2 px-2.5 bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT font-mono text-xs text-on-surface uppercase focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs"
                   />
@@ -516,14 +525,16 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
                     <input
                       type="color"
                       value={draftTheme.backgroundColor}
-                      onChange={(e) => handleLiveColorChange('backgroundColor', e.target.value)}
+                      onChange={(e) => handleDraftColorInput('backgroundColor', e.target.value)}
+                      onBlur={(e) => handleApplyColorCommit('backgroundColor', e.target.value)}
                       className="absolute -inset-2 w-14 h-14 cursor-pointer border-0 p-0"
                     />
                   </div>
                   <input
                     type="text"
                     value={draftTheme.backgroundColor}
-                    onChange={(e) => handleLiveColorChange('backgroundColor', e.target.value)}
+                    onChange={(e) => handleDraftColorInput('backgroundColor', e.target.value)}
+                    onBlur={(e) => handleApplyColorCommit('backgroundColor', e.target.value)}
                     placeholder="#f8f9ff"
                     className="w-full p-2 px-2.5 bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT font-mono text-xs text-on-surface uppercase focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs"
                   />
@@ -538,14 +549,16 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
                     <input
                       type="color"
                       value={draftTheme.textColor}
-                      onChange={(e) => handleLiveColorChange('textColor', e.target.value)}
+                      onChange={(e) => handleDraftColorInput('textColor', e.target.value)}
+                      onBlur={(e) => handleApplyColorCommit('textColor', e.target.value)}
                       className="absolute -inset-2 w-14 h-14 cursor-pointer border-0 p-0"
                     />
                   </div>
                   <input
                     type="text"
                     value={draftTheme.textColor}
-                    onChange={(e) => handleLiveColorChange('textColor', e.target.value)}
+                    onChange={(e) => handleDraftColorInput('textColor', e.target.value)}
+                    onBlur={(e) => handleApplyColorCommit('textColor', e.target.value)}
                     placeholder="#0b1c30"
                     className="w-full p-2 px-2.5 bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT font-mono text-xs text-on-surface uppercase focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs"
                   />
@@ -560,14 +573,16 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
                     <input
                       type="color"
                       value={draftTheme.buttonHoverColor}
-                      onChange={(e) => handleLiveColorChange('buttonHoverColor', e.target.value)}
+                      onChange={(e) => handleDraftColorInput('buttonHoverColor', e.target.value)}
+                      onBlur={(e) => handleApplyColorCommit('buttonHoverColor', e.target.value)}
                       className="absolute -inset-2 w-14 h-14 cursor-pointer border-0 p-0"
                     />
                   </div>
                   <input
                     type="text"
                     value={draftTheme.buttonHoverColor}
-                    onChange={(e) => handleLiveColorChange('buttonHoverColor', e.target.value)}
+                    onChange={(e) => handleDraftColorInput('buttonHoverColor', e.target.value)}
+                    onBlur={(e) => handleApplyColorCommit('buttonHoverColor', e.target.value)}
                     placeholder="#1f2937"
                     className="w-full p-2 px-2.5 bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT font-mono text-xs text-on-surface uppercase focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs"
                   />
