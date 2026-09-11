@@ -380,10 +380,10 @@ export const BillTemplateCustomizer: React.FC<BillTemplateCustomizerProps> = ({
         </div>
       </div>
 
-      {/* 3. Terms, Signatory & Footer Notice */}
+      {/* 3. Terms, Disclaimers & Footer Notice */}
       <div className="space-y-3">
         <span className="font-label-sm text-label-sm font-semibold text-on-surface uppercase tracking-wide">
-          3. Terms & Conditions, Signatory & Disclaimers
+          3. Terms & Conditions & Document Disclaimers
         </span>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-pad-md">
           {/* Terms & Conditions */}
@@ -411,32 +411,8 @@ export const BillTemplateCustomizer: React.FC<BillTemplateCustomizerProps> = ({
             />
           </div>
 
-          {/* Signatory Text */}
+          {/* Footer Notice & Additional Settings */}
           <div className="space-y-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="font-label-sm text-label-sm text-on-surface-variant">
-                  Authorized Signatory Header
-                </label>
-                <label className="flex items-center gap-1.5 text-[11px] cursor-pointer text-on-surface font-medium select-none">
-                  <input
-                    type="checkbox"
-                    checked={template.showAuthorizedSignatory !== false}
-                    onChange={(e) => updateTmpl('showAuthorizedSignatory', e.target.checked)}
-                    className="accent-primary rounded cursor-pointer"
-                  />
-                  <span>Show Signatory Box</span>
-                </label>
-              </div>
-              <input
-                type="text"
-                value={template.signatoryText || ''}
-                onChange={(e) => updateTmpl('signatoryText', e.target.value)}
-                placeholder={`For ${settings.storeName || settings.businessName || 'Store Outlet'}`}
-                className="w-full p-2 px-3 bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs"
-              />
-            </div>
-
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="font-label-sm text-label-sm text-on-surface-variant">
@@ -460,10 +436,17 @@ export const BillTemplateCustomizer: React.FC<BillTemplateCustomizerProps> = ({
                 className="w-full p-2 px-3 bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs"
               />
             </div>
-          </div>
 
-          <div className="md:col-span-2 pt-1 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-4 text-body-sm">
+            <div className="pt-1 flex flex-wrap items-center gap-4 text-body-sm">
+              <label className="flex items-center gap-2 cursor-pointer text-on-surface select-none">
+                <input
+                  type="checkbox"
+                  checked={template.showAmountInWords !== false}
+                  onChange={(e) => updateTmpl('showAmountInWords', e.target.checked)}
+                  className="accent-primary rounded cursor-pointer"
+                />
+                <span className="font-label-sm text-label-sm">Show Amount in Words</span>
+              </label>
               <label className="flex items-center gap-2 cursor-pointer text-on-surface select-none">
                 <input
                   type="checkbox"
@@ -472,15 +455,6 @@ export const BillTemplateCustomizer: React.FC<BillTemplateCustomizerProps> = ({
                   className="accent-primary rounded cursor-pointer"
                 />
                 <span className="font-label-sm text-label-sm">Show UPI / Dynamic QR Code</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer text-on-surface select-none">
-                <input
-                  type="checkbox"
-                  checked={Boolean(template.showCustomerSignature)}
-                  onChange={(e) => updateTmpl('showCustomerSignature', e.target.checked)}
-                  className="accent-primary rounded cursor-pointer"
-                />
-                <span className="font-label-sm text-label-sm">Customer Signature Line</span>
               </label>
             </div>
           </div>

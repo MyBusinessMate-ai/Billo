@@ -26,9 +26,9 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
     showToast(`Copied ${invoice.id} to clipboard`, 'info')
   }
 
-  const handleResend = () => {
-    showToast(`Digital invoice resent to ${invoice.customer.phone}`, 'success')
-  }
+  // const handleResend = () => {
+  //   showToast(`Digital invoice resent to ${invoice.customer.phone}`, 'success')
+  // }
 
   const totalUnits = invoice.items.reduce((s, i) => s + i.quantity, 0)
 
@@ -295,7 +295,7 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
               <span>Download PDF</span>
             </button>
           </div>
-          <button
+          {/* <button
             type="button"
             onClick={handleResend}
             className="flex items-center justify-center gap-2 bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface h-button-sm rounded-DEFAULT font-label-sm text-label-sm font-medium transition-colors cursor-pointer"
@@ -304,7 +304,7 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
             <span>
               Resend to {invoice.customer.name} ({invoice.customer.phone})
             </span>
-          </button>
+          </button> */}
         </div>
       </aside>
     </>

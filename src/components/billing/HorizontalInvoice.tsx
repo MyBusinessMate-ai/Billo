@@ -28,16 +28,13 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
     showHsn: false,
     showDiscount: true,
     showTaxBreakdown: true,
-    showAmountInWords: false,
+    showAmountInWords: true,
     showShipTo: false,
     showRemarks: true,
     showQrCode: true,
     showTerms: true,
     termsText:
       '1. Goods once sold can be exchanged within 7 days with original invoice.\n2. Warranty / guarantee as per manufacturer policy.',
-    showCustomerSignature: false,
-    showAuthorizedSignatory: true,
-    signatoryText: `For ${settings.storeName || settings.businessName || 'Store Outlet'}`,
     showFooterNotice: true,
     footerNotice: 'Thank you for shopping with us!',
     itemLabel: 'Product / Item Description',
@@ -149,6 +146,7 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean)
+  const hasTerms = Boolean(tmpl.showTerms !== false && termsLines.length > 0)
 
   return (
     <div
@@ -183,7 +181,7 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
               </div>
             </div>
 
-            <div className="text-[11px] text-slate-700 space-y-0.5">
+            <div className="text-[11px] text-slate-700 space-y-0.5 mt-2">
               {hasAddress && <p className="leading-tight">{settings.registeredAddress}</p>}
               {hasPhone && (
                 <p>
@@ -200,9 +198,9 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
         </div>
 
         {/* Right: Invoice Title Badge, Details & UPI QR Code (5 cols) */}
-        <div className="col-span-5 p-3.5 flex flex-col justify-between bg-slate-50/40">
+        <div className="col-span-5 p-3.5 flex flex-col justify-between">
           <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-            <span className="inline-block bg-slate-900 text-white px-2.5 py-0.5 rounded text-[11px] font-black uppercase tracking-wider">
+            <span className="inline-block border border-slate-900 text-slate-900 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider">
               {tmpl.invoiceTitle || 'TAX INVOICE'}
             </span>
             <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">
@@ -245,34 +243,32 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
         </div>
       </div>
 
-      {/* Row 2: Customer / Bill To Details Grid */}
-      <div className="p-3 border-b-2 border-slate-900 bg-slate-50/20">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-          <div>
-            <div className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-0.5">
-              Customer Details (Billed To):
-            </div>
-            <div className="text-xs font-bold text-slate-950">
+      {/* Row 2: Customer Details Grid (Uniform font) */}
+      <div className="px-3.5 py-2 border-b-2 border-slate-900">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-xs text-slate-800">
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-600 font-semibold">Customer Name:</span>
+            <span className="font-bold text-slate-950">
               {invoice.customer.name || 'Walk-in Customer'}
-            </div>
+            </span>
           </div>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-[11px] text-slate-700">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-slate-800">
             {tmpl.showCustomerPhone !== false && (
-              <div>
-                <span className="text-slate-500">Mobile:</span>{' '}
-                <strong className="text-slate-900">
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-600 font-semibold">Mobile:</span>
+                <span className="font-bold text-slate-950">
                   {invoice.customer.phone && invoice.customer.phone !== '—'
                     ? invoice.customer.phone
                     : '-'}
-                </strong>
+                </span>
               </div>
             )}
             {tmpl.showCustomerEmail !== false && (
-              <div>
-                <span className="text-slate-500">Email:</span>{' '}
-                <strong className="text-slate-900">
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-600 font-semibold">Email:</span>
+                <span className="font-bold text-slate-950">
                   {invoice.customer.email ? invoice.customer.email : '-'}
-                </strong>
+                </span>
               </div>
             )}
           </div>
@@ -294,7 +290,7 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
         <table className="w-full border-collapse text-left">
           <thead>
             <tr className="bg-slate-100 text-[10px] font-black uppercase text-slate-900 border-b-2 border-slate-900">
-              <th className="py-2.5 px-2 text-center border-r border-slate-300 w-8">#</th>
+              <th className="py-2.5 px-2 text-center border-r border-slate-300 w-10">S.No.</th>
               <th className="py-2.5 px-3 border-r border-slate-300">
                 {tmpl.itemLabel || 'Product / Item Description'}
               </th>
@@ -332,7 +328,7 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
               const itemNet = itemTotal + itemCgst + itemSgst
 
               return (
-                <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}>
+                <tr key={idx} className="bg-white">
                   <td className="py-2 px-2 text-center font-mono text-slate-600 border-r border-slate-300">
                     {idx + 1}
                   </td>
@@ -399,7 +395,7 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
           </tbody>
           {/* Table Totals Row */}
           <tfoot>
-            <tr className="bg-slate-100 font-extrabold text-[11px] border-t-2 border-slate-900 text-slate-950">
+            <tr className="bg-white font-extrabold text-[11px] border-t-2 border-slate-900 text-slate-950">
               <td className="py-2.5 px-2 text-center border-r border-slate-300"></td>
               <td className="py-2.5 px-3 uppercase tracking-wider border-r border-slate-300">
                 Total Items: {invoice.items.length} ({totalQty} {totalQty === 1 ? 'Unit' : 'Units'})
@@ -437,58 +433,125 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
         </table>
       </div>
 
-      {/* Row 4: Financial Summary Block */}
+      {/* Row 4: Commercial Summary & Terms Grid (Direct Clean Structure) */}
       <div className="grid grid-cols-12 border-b-2 border-slate-900">
-        {/* Left: Remarks & Optional Amount in Words (7 cols) */}
-        <div className="col-span-7 p-3 border-r-2 border-slate-900 flex flex-col justify-between">
-          <div>
-            {tmpl.showAmountInWords && (
-              <div className="mb-2">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
+        {/* Left: Amount In Words, Payment Details, Terms & Conditions + QR Code (7 cols) */}
+        <div className="col-span-7 p-3.5 border-r-2 border-slate-900 flex flex-col justify-between space-y-2">
+          {/* Top Info: Amount in Words & Payment Mode */}
+          <div className="space-y-1.5">
+            {tmpl.showAmountInWords !== false && (
+              <div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   Amount In Words:
                 </span>
-                <p className="text-xs font-black uppercase text-slate-950 italic">
+                <p className="text-xs font-bold text-slate-950 uppercase italic leading-tight">
                   {numberToWordsIndian(netTotal)}
                 </p>
               </div>
             )}
 
             {tmpl.showRemarks !== false && (
-              <div className="text-[10px] text-slate-600 flex items-center gap-2">
-                <span className="font-bold uppercase text-slate-700">Payment Remarks:</span>
-                <span>
-                  Settled via {invoice.paymentMethod}{' '}
-                  {invoice.discountCode ? `(Promo: ${invoice.discountCode})` : ''}
-                </span>
+              <div className="text-xs text-slate-700">
+                <span className="text-slate-500 font-semibold">Payment Mode:</span>{' '}
+                <span className="font-bold text-slate-900">{invoice.paymentMethod}</span>
+                {invoice.discountCode ? (
+                  <span className="ml-1 text-slate-500">
+                    (Promo: <strong className="text-emerald-700">{invoice.discountCode}</strong>)
+                  </span>
+                ) : null}
               </div>
             )}
           </div>
+
+          {/* Bottom Area: Terms on Left & QR on Right (Adaptive when Terms is toggled off) */}
+          {(hasTerms || settings.showDynamicQrOnBill !== false) && (
+            <div
+              className={`pt-2 border-t border-slate-200 flex ${
+                hasTerms && settings.showDynamicQrOnBill !== false
+                  ? 'items-start justify-between gap-4'
+                  : 'items-center justify-center'
+              }`}
+            >
+              {/* Terms & Conditions (Left side) */}
+              {hasTerms && (
+                <div className="flex-1 min-w-0 text-[10px] text-slate-600 space-y-0.5">
+                  <span className="font-extrabold text-slate-900 uppercase tracking-wider block mb-0.5">
+                    Terms & Conditions:
+                  </span>
+                  <div className="space-y-0.5 leading-tight">
+                    {termsLines.map((line, i) => (
+                      <p key={i}>{line}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Dynamic Social / Review QR Code (Right side or Centered if no terms) */}
+              {settings.showDynamicQrOnBill !== false && (
+                <div className="flex flex-col items-center text-center shrink-0">
+                  <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-900 block mb-1">
+                    {dynamicQr.header}
+                  </span>
+                  <div className="p-1 bg-white border border-slate-300 rounded inline-flex items-center justify-center shadow-2xs mb-0.5">
+                    <QRCodeSVG
+                      value={dynamicQr.url}
+                      size={hasTerms ? 62 : 78}
+                      level="M"
+                      includeMargin={false}
+                    />
+                  </div>
+                  <span className="text-[8px] text-slate-500 font-mono truncate block max-w-[160px]">
+                    {dynamicQr.url}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Right: Net Calculation (5 cols) */}
-        <div className="col-span-5 p-3 bg-slate-50/50 flex flex-col justify-between space-y-1 text-xs">
-          <div className="flex justify-between text-slate-700">
-            <span>Subtotal:</span>
-            <span className="font-mono font-semibold">₹{computedSubtotal.toFixed(2)}</span>
+        {/* Right: Detailed Financial Breakdown & Total Payable (5 cols - Direct Layout) */}
+        <div className="col-span-5 p-3.5 flex flex-col justify-between space-y-2 text-xs">
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-slate-700">
+              <span>Subtotal:</span>
+              <span className="font-mono font-semibold">₹{computedSubtotal.toFixed(2)}</span>
+            </div>
+
+            {hasDiscount && (
+              <div className="flex justify-between text-emerald-700 font-semibold">
+                <span>Discount:</span>
+                <span className="font-mono">-₹{discountAmount.toFixed(2)}</span>
+              </div>
+            )}
+
+            {tmpl.showTaxBreakdown && hasTax ? (
+              <>
+                <div className="flex justify-between text-slate-700 text-[11px]">
+                  <span>CGST ({(fallbackTaxPercent / 2).toFixed(1)}%):</span>
+                  <span className="font-mono font-semibold">₹{halfTaxAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-slate-700 text-[11px]">
+                  <span>SGST ({(fallbackTaxPercent / 2).toFixed(1)}%):</span>
+                  <span className="font-mono font-semibold">₹{halfTaxAmount.toFixed(2)}</span>
+                </div>
+              </>
+            ) : hasTax ? (
+              <div className="flex justify-between text-slate-700">
+                <span>GST {hasItemGst ? '(Itemized)' : `(${fallbackTaxPercent}%)`}:</span>
+                <span className="font-mono font-semibold">₹{taxAmount.toFixed(2)}</span>
+              </div>
+            ) : null}
           </div>
 
-          {hasDiscount && (
-            <div className="flex justify-between text-emerald-700 font-semibold">
-              <span>Discount:</span>
-              <span className="font-mono">-₹{discountAmount.toFixed(2)}</span>
+          {/* Total Payable (Direct Layout Row) */}
+          <div className="pt-2 border-t-2 border-slate-900 flex justify-between items-center">
+            <div>
+              <span className="text-xs font-black uppercase tracking-wider block text-slate-900">
+                Total Payable
+              </span>
+              <span className="text-[9px] text-slate-500 font-medium">(Incl. all taxes)</span>
             </div>
-          )}
-
-          {hasTax && (
-            <div className="flex justify-between text-slate-700">
-              <span>GST {hasItemGst ? '(Itemized)' : `(${fallbackTaxPercent}%)`}:</span>
-              <span className="font-mono font-semibold">₹{taxAmount.toFixed(2)}</span>
-            </div>
-          )}
-
-          <div className="pt-1.5 border-t-2 border-slate-900 flex justify-between items-center text-sm font-black text-slate-950">
-            <span>Total Payable:</span>
-            <span className="font-mono font-black text-base">
+            <span className="font-mono font-black text-lg text-slate-950">
               ₹
               {netTotal.toLocaleString('en-IN', {
                 minimumFractionDigits: 2,
@@ -498,81 +561,6 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Row 5: Verification & Terms Section */}
-      {(tmpl.showTerms || tmpl.showAuthorizedSignatory || tmpl.showCustomerSignature) && (
-        <div className="grid grid-cols-12 border-b-2 border-slate-900 min-h-[90px]">
-          {/* Left: Terms & Conditions */}
-          {tmpl.showTerms && (
-            <div
-              className={`${
-                tmpl.showAuthorizedSignatory
-                  ? 'col-span-7 border-r-2 border-slate-900'
-                  : 'col-span-12'
-              } p-3 text-[9px] text-slate-600 flex flex-col justify-between`}
-            >
-              <div>
-                <span className="font-extrabold text-slate-900 uppercase tracking-wider block mb-1">
-                  Terms & Conditions:
-                </span>
-                <div className="space-y-0.5 leading-tight">
-                  {termsLines.map((line, i) => (
-                    <p key={i}>{line}</p>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Customer Signature (if enabled) */}
-          {tmpl.showCustomerSignature && (
-            <div className="col-span-2 p-3 border-r-2 border-slate-900 flex flex-col justify-end text-center text-[9px] text-slate-600">
-              <div className="border-b border-dashed border-slate-400 w-24 mx-auto mb-1" />
-              <span className="font-bold uppercase text-slate-800">Customer Signature</span>
-            </div>
-          )}
-
-          {/* Right: Store Authorized Signatory */}
-          {tmpl.showAuthorizedSignatory && (
-            <div
-              className={`${
-                tmpl.showTerms ? 'col-span-5' : 'col-span-12'
-              } p-3 flex flex-col justify-between text-right`}
-            >
-              <span className="text-[10px] font-black uppercase text-slate-900">
-                {tmpl.signatoryText ||
-                  `For ${settings.storeName || settings.businessName || 'Store'}`}
-              </span>
-              <div className="pt-6 text-center">
-                <div className="border-b border-dashed border-slate-400 w-36 mx-auto mb-1" />
-                <span className="text-[10px] font-extrabold uppercase text-slate-900 tracking-wider">
-                  Authorized Signatory
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Dynamic Social / Review QR Code Strip (if enabled) */}
-      {settings.showDynamicQrOnBill !== false && (
-        <div className="p-2.5 bg-slate-50/50 border-b-2 border-slate-900 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-[52px] h-[52px] p-1 bg-white border border-slate-300 rounded shrink-0 flex items-center justify-center shadow-2xs">
-              <QRCodeSVG value={dynamicQr.url} size={44} level="M" includeMargin={false} />
-            </div>
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 block">
-                {dynamicQr.header}
-              </span>
-              <span className="text-[9px] text-slate-500 font-mono">{dynamicQr.url}</span>
-            </div>
-          </div>
-          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
-            Scan to Connect & Rate
-          </span>
-        </div>
-      )}
 
       {/* Footer Line */}
       {tmpl.showFooterNotice && (

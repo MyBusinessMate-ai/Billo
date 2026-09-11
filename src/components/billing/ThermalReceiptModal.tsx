@@ -353,11 +353,11 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                 <div className="pt-4 text-center flex flex-col items-center gap-3">
                   {/* Type 1: UPI Payment QR (Only for UPI payment method) */}
                   {isUpiPayment && tmpl.showQrCode !== false && (
-                    <div className="flex flex-col items-center p-2.5 bg-slate-50 rounded border border-slate-200 w-full">
+                    <div className="flex flex-col items-center p-1 w-full">
                       <p className="text-[10px] font-black text-slate-900 tracking-wider uppercase mb-1.5">
                         SCAN TO PAY VIA UPI
                       </p>
-                      <div className="w-20 h-20 bg-white p-1.5 border border-slate-300 rounded mb-1 flex items-center justify-center">
+                      <div className="w-20 h-20 bg-white p-1 border border-slate-300 rounded mb-1 flex items-center justify-center shadow-2xs">
                         <QRCodeSVG
                           value={generateUPIUrl({
                             upiId: (settings as any).upiId || settings.qrPayloadUrl || 'store@upi',
@@ -378,11 +378,11 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
 
                   {/* Type 2: Dynamic Social / Review QR (Enabled via showDynamicQrOnBill) */}
                   {settings.showDynamicQrOnBill !== false && (
-                    <div className="flex flex-col items-center p-2.5 bg-slate-50 rounded border border-slate-200 w-full">
+                    <div className="flex flex-col items-center p-1 w-full">
                       <p className="text-[10px] font-black text-slate-900 tracking-wider uppercase mb-1.5">
                         {dynamicQr.header}
                       </p>
-                      <div className="w-20 h-20 bg-white p-1.5 border border-slate-300 rounded mb-1 flex items-center justify-center">
+                      <div className="w-20 h-20 bg-white p-1 border border-slate-300 rounded mb-1 flex items-center justify-center shadow-2xs">
                         <QRCodeSVG
                           value={dynamicQr.url}
                           size={68}
