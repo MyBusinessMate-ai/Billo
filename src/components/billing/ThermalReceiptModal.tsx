@@ -1,0 +1,436 @@
+import React from 'react'
+import { Printer, Download, X } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
+import type { BillingInvoice, BillTemplateConfig } from '../../types/pos'
+import { usePOS } from '../../context/POSContext'
+import { BrandLogo } from '../common/BrandLogo'
+import { HorizontalInvoice } from './HorizontalInvoice'
+import { printElementContent } from '../../utils/print'
+import { generateUPIUrl } from '../../utils/formatters'
+
+interface ThermalReceiptModalProps {
+  invoice: BillingInvoice | null
+  isOpen: boolean
+  onClose: () => void
+  formatOverride?: 'thermal' | 'a4'
+  templateOverride?: BillTemplateConfig
+}
+
+export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
+  invoice,
+  isOpen,
+  onClose,
+  formatOverride,
+  templateOverride,
+}) => {
+  const { settings, showToast } = usePOS()
+  const activeFormat = formatOverride || settings.invoiceFormat || 'thermal'
+  const format = activeFormat === 'a4' ? 'horizontal' : 'thermal'
+
+  const tmpl: BillTemplateConfig = {
+    invoiceTitle: 'TAX INVOICE',
+    invoiceSubtitle: '',
+    showLogo: true,
+    showAddress: true,
+    showPhone: true,
+    showGstin: true,
+    showCustomerPhone: true,
+    showCustomerEmail: true,
+    showCategory: false,
+    showHsn: false,
+    showDiscount: true,
+    showTaxBreakdown: true,
+    showAmountInWords: false,
+    showShipTo: false,
+    showRemarks: true,
+    showQrCode: true,
+    showTerms: true,
+    termsText:
+      '1. Goods once sold can be exchanged within 7 days with original invoice.\n2. Warranty / guarantee as per manufacturer policy.',
+    showCustomerSignature: false,
+    showAuthorizedSignatory: true,
+    signatoryText: `For ${settings.storeName || settings.businessName || 'Store Outlet'}`,
+    showFooterNotice: true,
+    footerNotice: 'Thank you for shopping with us!',
+    itemLabel: 'Item',
+    qtyLabel: 'Qty',
+    rateLabel: 'Price',
+    totalLabel: 'Total',
+    ...(settings.billTemplate || {}),
+    ...(templateOverride || {}),
+  }
+
+  if (!isOpen || !invoice) return null
+
+  const hasGstin = Boolean(settings.gstin && settings.gstin.trim() !== '' && settings.gstin !== '0')
+  const hasPhone = Boolean(settings.phone && settings.phone.trim() !== '' && settings.phone !== '—')
+  const hasAddress = Boolean(settings.registeredAddress && settings.registeredAddress.trim() !== '')
+  const fallbackTaxPercent = invoice.taxPercent ?? settings.taxRatePercent ?? 0
+  const hasItemGst = invoice.items?.some((item) => item.gstPercent !== undefined)
+
+  const computedSubtotal =
+    invoice.items && invoice.items.length > 0
+      ? invoice.items.reduce((sum, item) => sum + (item.total ?? item.price * item.quantity), 0)
+      : invoice.subtotal || 0
+
+  const computedTaxAmount =
+    invoice.items && invoice.items.length > 0
+      ? invoice.items.reduce((sum, item) => {
+          const itemTaxRate = item.gstPercent !== undefined ? item.gstPercent : fallbackTaxPercent
+          return sum + ((item.total ?? item.price * item.quantity) * itemTaxRate) / 100
+        }, 0)
+      : invoice.taxAmount || 0
+
+  const taxAmount = invoice.taxAmount > 0 ? invoice.taxAmount : computedTaxAmount
+  const hasTax = taxAmount > 0
+  const discountAmount = invoice.discountAmount || 0
+  const hasDiscount = discountAmount > 0
+  const netTotal =
+    invoice.netTotal || Math.round(Math.max(0, computedSubtotal + taxAmount - discountAmount))
+
+  const isUpiPayment = Boolean(
+    invoice.paymentMethod?.toLowerCase().includes('upi') ||
+    invoice.paymentMethod?.toLowerCase().includes('gpay') ||
+    invoice.paymentMethod?.toLowerCase().includes('phonepe') ||
+    invoice.paymentMethod?.toLowerCase().includes('paytm') ||
+    invoice.paymentMethod?.toLowerCase().includes('online')
+  )
+
+  const getDynamicQrDetails = () => {
+    const purpose = settings.qrPurpose || 'review'
+    let url = 'https://google.com'
+    let header = settings.dynamicQrHeader || 'Rate us on Google & Review'
+
+    if (purpose === 'instagram') {
+      const raw = settings.instagram?.trim() || ''
+      url = !raw
+        ? 'https://instagram.com'
+        : raw.startsWith('http://') || raw.startsWith('https://')
+          ? raw
+          : `https://instagram.com/${raw.replace(/^@/, '')}`
+      header = settings.dynamicQrHeader || 'Follow us on Instagram'
+    } else if (purpose === 'website') {
+      const raw = settings.website?.trim() || ''
+      url = !raw
+        ? 'https://example.com'
+        : raw.startsWith('http://') || raw.startsWith('https://')
+          ? raw
+          : `https://${raw}`
+      header = settings.dynamicQrHeader || 'Visit our Website'
+    } else if (purpose === 'review') {
+      const raw = settings.googleReview?.trim() || ''
+      url = !raw
+        ? 'https://google.com'
+        : raw.startsWith('http://') || raw.startsWith('https://')
+          ? raw
+          : `https://${raw}`
+      header = settings.dynamicQrHeader || 'Rate us on Google & Review'
+    } else if (purpose === 'custom') {
+      url = settings.qrPayloadUrl?.trim() || 'https://example.com'
+      header = settings.dynamicQrHeader || 'Scan QR Code'
+    }
+    return { url, header }
+  }
+
+  const dynamicQr = getDynamicQrDetails()
+
+  const formattedInvoiceNo = invoice.id.startsWith('#')
+    ? invoice.id.replace('#', '')
+    : invoice.id.startsWith('INV-')
+      ? invoice.id
+      : `INV-${invoice.numericId || invoice.id}`
+
+  const termsLines = (tmpl.termsText || '')
+    .split('\n')
+    .map((l: string) => l.trim())
+    .filter(Boolean)
+
+  const handlePrint = () => {
+    const success = printElementContent('printable-bill-container', {
+      format,
+      title: `${format === 'thermal' ? 'Receipt' : 'Invoice'}-${invoice.id}`,
+    })
+    if (success) {
+      showToast(
+        `Sent ${format === 'thermal' ? '80mm Thermal Receipt' : 'A4 Tax Invoice'} to printer`,
+        'success'
+      )
+    } else {
+      window.print()
+    }
+  }
+
+  const handleDownloadPdf = () => {
+    // Isolated print trigger with Save to PDF capability
+    printElementContent('printable-bill-container', {
+      format,
+      title: `Invoice-${invoice.id}`,
+    })
+    showToast(`Prepared PDF print document for ${invoice.id}`, 'info')
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div
+        className={`bg-white rounded-2xl shadow-2xl w-full overflow-hidden border border-slate-200 flex flex-col max-h-[92vh] relative transition-all duration-200 ${
+          format === 'horizontal' ? 'max-w-4xl' : 'max-w-md'
+        }`}
+      >
+        {/* Floating Close Button */}
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-white/90 hover:bg-white text-slate-400 hover:text-slate-700 shadow-xs border border-slate-200 transition-colors cursor-pointer"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* Scrollable Receipt Body */}
+        <div className="p-4 sm:p-6 overflow-y-auto bg-slate-100/70 flex-1">
+          <div id="printable-bill-container" className="w-full flex justify-center">
+            {format === 'horizontal' ? (
+              <HorizontalInvoice invoice={invoice} templateOverride={tmpl} />
+            ) : (
+              <div className="thermal-receipt p-6 rounded-lg border border-slate-200 text-slate-900 text-xs font-mono max-w-[380px] w-full bg-white shadow-sm">
+                {/* Store Brand & Info */}
+                <div className="text-center pb-4 border-b border-dashed border-slate-300">
+                  {tmpl.showLogo !== false && (
+                    <div className="flex justify-center mb-2">
+                      <BrandLogo size="md" showText={false} />
+                    </div>
+                  )}
+                  <h4 className="font-bold text-sm uppercase tracking-tight">
+                    {settings.storeName || settings.businessName || 'Store Receipt'}
+                  </h4>
+                  {tmpl.invoiceSubtitle && (
+                    <p className="text-[10px] text-slate-500 font-sans mt-0.5">
+                      {tmpl.invoiceSubtitle}
+                    </p>
+                  )}
+                  {hasAddress && (
+                    <p className="text-[10px] text-slate-600 mt-1 max-w-[260px] mx-auto leading-tight">
+                      {settings.registeredAddress}
+                    </p>
+                  )}
+                  {(hasGstin || hasPhone) && (
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      {hasGstin && <span>GST: {settings.gstin}</span>}
+                      {hasGstin && hasPhone && <span> | </span>}
+                      {hasPhone && <span>Ph: {settings.phone}</span>}
+                    </p>
+                  )}
+                </div>
+
+                {/* Bill Details & Customer Details */}
+                <div className="py-3 border-b border-dashed border-slate-300 text-[11px] space-y-2">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-slate-500">Invoice No:</span>{' '}
+                      <span className="font-bold font-mono text-slate-950">
+                        {formattedInvoiceNo}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-slate-500">Date:</span> <span>{invoice.date}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-1.5 border-t border-dotted border-slate-200 text-left space-y-0.5">
+                    <div>
+                      <span className="text-slate-500">Customer:</span>{' '}
+                      <span className="font-semibold text-slate-950">
+                        {invoice.customer.name || 'Walk-in Customer'}
+                      </span>
+                    </div>
+                    {tmpl.showCustomerPhone !== false && (
+                      <div>
+                        <span className="text-slate-500">Mobile:</span>{' '}
+                        <span>
+                          {invoice.customer.phone && invoice.customer.phone !== '—'
+                            ? invoice.customer.phone
+                            : '-'}
+                        </span>
+                      </div>
+                    )}
+                    {tmpl.showCustomerEmail !== false && (
+                      <div>
+                        <span className="text-slate-500">Email:</span>{' '}
+                        <span>{invoice.customer.email ? invoice.customer.email : '-'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Itemized Table */}
+                <div className="py-3 border-b border-dashed border-slate-300">
+                  <div className="grid grid-cols-12 font-bold text-[10px] uppercase text-slate-500 pb-1">
+                    <span className="col-span-6">{tmpl.itemLabel || 'Item'}</span>
+                    <span className="col-span-2 text-center">{tmpl.qtyLabel || 'Qty'}</span>
+                    <span className="col-span-2 text-right">{tmpl.rateLabel || 'Price'}</span>
+                    <span className="col-span-2 text-right">{tmpl.totalLabel || 'Total'}</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5 pt-1 text-[11px]">
+                    {invoice.items.map((item, idx) => (
+                      <div key={idx} className="grid grid-cols-12 items-center">
+                        <span className="col-span-6 truncate font-medium">
+                          {item.name}
+                          {item.gstPercent !== undefined && (
+                            <span className="text-[9px] text-slate-500 ml-1">
+                              ({item.gstPercent}%)
+                            </span>
+                          )}
+                        </span>
+                        <span className="col-span-2 text-center text-slate-600">
+                          {item.quantity}
+                        </span>
+                        <span className="col-span-2 text-right text-slate-600">
+                          ₹{item.price.toFixed(2)}
+                        </span>
+                        <span className="col-span-2 text-right font-semibold">
+                          ₹{(item.total ?? item.price * item.quantity).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Subtotals & Taxes */}
+                <div className="py-3 border-b border-dashed border-slate-300 flex flex-col gap-1 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Subtotal:</span>
+                    <span>₹{computedSubtotal.toFixed(2)}</span>
+                  </div>
+
+                  {hasTax && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">
+                        GST {hasItemGst ? '(Itemized)' : `(${fallbackTaxPercent}%)`}:
+                      </span>
+                      <span>₹{taxAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  {hasDiscount && (
+                    <div className="flex justify-between text-emerald-700 font-semibold">
+                      <span>Discount ({invoice.discountCode || 'PROMO'}):</span>
+                      <span>-₹{discountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between text-sm font-extrabold pt-2 border-t border-slate-200 mt-1">
+                    <span>TOTAL PAYABLE:</span>
+                    <span className="text-slate-950">₹{netTotal.toLocaleString('en-IN')}.00</span>
+                  </div>
+
+                  {tmpl.showRemarks !== false && (
+                    <div className="flex justify-between text-[11px] text-slate-600 pt-1">
+                      <span>Payment Mode:</span>
+                      <span className="font-semibold">{invoice.paymentMethod}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Optional Terms & Conditions */}
+                {tmpl.showTerms && termsLines.length > 0 && (
+                  <div className="py-2.5 border-b border-dashed border-slate-300 text-[10px] text-slate-600 space-y-0.5">
+                    <span className="font-bold uppercase text-[9px] text-slate-700 block mb-0.5">
+                      Terms & Conditions:
+                    </span>
+                    {termsLines.map((line, i) => (
+                      <p key={i} className="leading-tight">
+                        {line}
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {/* QR Codes & Footer */}
+                <div className="pt-4 text-center flex flex-col items-center gap-3">
+                  {/* Type 1: UPI Payment QR (Only for UPI payment method) */}
+                  {isUpiPayment && tmpl.showQrCode !== false && (
+                    <div className="flex flex-col items-center p-2.5 bg-slate-50 rounded border border-slate-200 w-full">
+                      <p className="text-[10px] font-black text-slate-900 tracking-wider uppercase mb-1.5">
+                        SCAN TO PAY VIA UPI
+                      </p>
+                      <div className="w-20 h-20 bg-white p-1.5 border border-slate-300 rounded mb-1 flex items-center justify-center">
+                        <QRCodeSVG
+                          value={generateUPIUrl({
+                            upiId: (settings as any).upiId || settings.qrPayloadUrl || 'store@upi',
+                            payeeName: settings.storeName || settings.businessName || 'Store POS',
+                            amount: invoice.netTotal,
+                            invoiceId: invoice.id,
+                          })}
+                          size={68}
+                          level="M"
+                          includeMargin={false}
+                        />
+                      </div>
+                      <p className="text-[9px] font-semibold text-slate-700">
+                        Amount: ₹{netTotal.toLocaleString('en-IN')}.00
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Type 2: Dynamic Social / Review QR (Enabled via showDynamicQrOnBill) */}
+                  {settings.showDynamicQrOnBill !== false && (
+                    <div className="flex flex-col items-center p-2.5 bg-slate-50 rounded border border-slate-200 w-full">
+                      <p className="text-[10px] font-black text-slate-900 tracking-wider uppercase mb-1.5">
+                        {dynamicQr.header}
+                      </p>
+                      <div className="w-20 h-20 bg-white p-1.5 border border-slate-300 rounded mb-1 flex items-center justify-center">
+                        <QRCodeSVG
+                          value={dynamicQr.url}
+                          size={68}
+                          level="M"
+                          includeMargin={false}
+                        />
+                      </div>
+                      <p className="text-[9px] text-slate-500 max-w-[240px] truncate font-mono">
+                        {dynamicQr.url}
+                      </p>
+                    </div>
+                  )}
+
+                  {tmpl.showFooterNotice && (
+                    <p className="text-[10px] text-slate-400 mt-1 italic">{tmpl.footerNotice}</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Modal Actions */}
+        <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>{format === 'thermal' ? 'Print 80mm Receipt' : 'Print A4 Invoice'}</span>
+            </button>
+            <button
+              onClick={handleDownloadPdf}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors border border-slate-200 cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download PDF</span>
+            </button>
+          </div>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold transition-colors cursor-pointer"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

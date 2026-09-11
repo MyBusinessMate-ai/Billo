@@ -1,0 +1,235 @@
+import { z } from 'zod'
+
+export interface FirestoreTimestamp {
+  seconds: number
+  nanoseconds: number
+  toDate?: () => Date
+  toMillis?: () => number
+}
+
+export const FirestoreTimestampSchema = z.custom<FirestoreTimestamp>(
+  (val) => {
+    if (!val || typeof val !== 'object') return false
+    const obj = val as Record<string, unknown>
+    return typeof obj.seconds === 'number' && typeof obj.nanoseconds === 'number'
+  },
+  {
+    message: 'Expected Firestore Timestamp object with seconds and nanoseconds',
+  }
+)
+
+export const CustomerIdSchema = z
+  .string()
+  .regex(
+    /^CUS-\d{4}-\d{6}$/,
+    "Customer ID must follow 'CUS-{YEAR}-{6 DIGIT}' (e.g. CUS-2026-000001)"
+  )
+
+export const CustomerSchema = z.object({
+  customerId: CustomerIdSchema,
+  name: z.string().min(1, 'Customer name is required'),
+  email: z.string().email('Invalid email address').optional(),
+  phoneNo: z.string().min(1, 'Phone number is required'),
+  visits: z.number().int().nonnegative().default(0),
+  lastVisitAt: FirestoreTimestampSchema.optional(),
+  createdAt: FirestoreTimestampSchema,
+  updatedAt: FirestoreTimestampSchema,
+})
+
+export type Customer = z.infer<typeof CustomerSchema>
+
+export const CategoryIdSchema = z
+  .string()
+  .regex(/^CAT-\d{6}$/, "Category ID must follow 'CAT-{6 DIGIT}' (e.g. CAT-000001)")
+
+export const CategorySchema = z.object({
+  categoryId: CategoryIdSchema,
+  categoryName: z.string().min(1, 'Category name is required'),
+  createdAt: FirestoreTimestampSchema,
+  updatedAt: FirestoreTimestampSchema,
+})
+
+export type Category = z.infer<typeof CategorySchema>
+
+export const BillingIdSchema = z
+  .string()
+  .regex(
+    /^INV-\d{4}-\d{6}$/,
+    "Billing ID must follow 'INV-{YEAR}-{6 DIGIT}' (e.g. INV-2026-000001)"
+  )
+
+export const BillingModeSchema = z.enum(['cash', 'upi', 'card'])
+export type BillingMode = z.infer<typeof BillingModeSchema>
+
+export const BillingItemSchema = z.object({
+  categoryId: CategoryIdSchema.or(z.string().min(1, 'Category ID is required')),
+  categoryName: z.string().min(1, 'Category name is required'),
+  itemName: z.string().optional(),
+  quantity: z.number().positive('Quantity must be greater than 0'),
+  unitPrice: z.number().nonnegative('Unit price must be non-negative'),
+  total: z.number().nonnegative('Line total must be non-negative'),
+})
+
+export type BillingItem = z.infer<typeof BillingItemSchema>
+
+export function getBillingItemDisplayName(item: {
+  itemName?: string
+  categoryName: string
+}): string {
+  if (item.itemName && item.itemName.trim().length > 0) {
+    return item.itemName.trim()
+  }
+  return item.categoryName
+}
+
+export const BillingSchema = z.object({
+  billingId: BillingIdSchema,
+  customerId: CustomerIdSchema.optional(),
+  customerName: z.string().optional(),
+  customerPhone: z.string().optional(),
+  customerEmail: z.string().optional(),
+  items: z.array(BillingItemSchema).min(1, 'Billing invoice must contain at least one item'),
+  total: z.number().nonnegative('Billing total must be non-negative'),
+  billMode: BillingModeSchema,
+  createdAt: FirestoreTimestampSchema,
+  updatedAt: FirestoreTimestampSchema,
+})
+
+export type Billing = z.infer<typeof BillingSchema>
+
+export const ProductIdSchema = z
+  .string()
+  .regex(/^PROD-\d{6}$/, "Product ID must follow 'PROD-{6 DIGIT}' (e.g. PROD-000001)")
+
+export const ProductSchema = z.object({
+  productId: ProductIdSchema,
+  categoryId: CategoryIdSchema.or(z.string().min(1, 'Category ID is required')),
+  categoryName: z.string().min(1, 'Category name is required'),
+  productName: z.string().min(1, 'Product name is required'),
+  price: z.number().nonnegative('Price must be non-negative'),
+  quantity: z.number().int().nonnegative('Available quantity must be non-negative'),
+  lowStockThreshold: z.number().int().nonnegative().default(10),
+  isActive: z.boolean().default(true),
+  createdAt: FirestoreTimestampSchema,
+  updatedAt: FirestoreTimestampSchema,
+})
+
+export type Product = z.infer<typeof ProductSchema>
+
+export function isProductLowStock(product: {
+  quantity: number
+  lowStockThreshold: number
+}): boolean {
+  return product.quantity <= product.lowStockThreshold
+}
+
+export const SocialsSchema = z.object({
+  instagram: z.string().optional(),
+  facebook: z.string().optional(),
+  website: z.string().optional(),
+  gbp: z.string().optional(),
+  googleReviews: z.string().optional(),
+  whatsappBusinessSupport: z.string().optional(),
+})
+
+export type Socials = z.infer<typeof SocialsSchema>
+
+export const QrSettingsSchema = z.object({
+  googleCustomerReviewUrl: z.string().optional(),
+  upiUrl: z.string().optional(),
+  qrPurpose: z.string().optional(),
+  showDynamicQrOnBill: z.boolean().optional(),
+  dynamicQrHeader: z.string().optional(),
+  upiId: z.string().optional(),
+})
+
+export type QrSettings = z.infer<typeof QrSettingsSchema>
+
+export const BillTemplateSchema = z.object({
+  invoiceTitle: z.string().optional(),
+  invoiceSubtitle: z.string().optional(),
+  showLogo: z.boolean().optional(),
+  showAddress: z.boolean().optional(),
+  showPhone: z.boolean().optional(),
+  showGstin: z.boolean().optional(),
+  showCustomerPhone: z.boolean().optional(),
+  showCustomerEmail: z.boolean().optional(),
+  showCategory: z.boolean().optional(),
+  showHsn: z.boolean().optional(),
+  showDiscount: z.boolean().optional(),
+  showTaxBreakdown: z.boolean().optional(),
+  showAmountInWords: z.boolean().optional(),
+  showShipTo: z.boolean().optional(),
+  showRemarks: z.boolean().optional(),
+  showQrCode: z.boolean().optional(),
+  showTerms: z.boolean().optional(),
+  termsText: z.string().optional(),
+  showCustomerSignature: z.boolean().optional(),
+  showAuthorizedSignatory: z.boolean().optional(),
+  signatoryText: z.string().optional(),
+  showFooterNotice: z.boolean().optional(),
+  footerNotice: z.string().optional(),
+  itemLabel: z.string().optional(),
+  qtyLabel: z.string().optional(),
+  rateLabel: z.string().optional(),
+  totalLabel: z.string().optional(),
+})
+
+export type BillTemplate = z.infer<typeof BillTemplateSchema>
+
+export const SettingsSchema = z.object({
+  storeName: z.string().min(1, 'Store name is required'),
+  logoUrl: z.string().optional(),
+  taxId: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  standardGstPercentage: z.number().nonnegative().optional(),
+  address: z.string().optional(),
+  socials: SocialsSchema.optional(),
+  qr: QrSettingsSchema.optional(),
+  invoiceFormat: z.enum(['thermal', 'a4']).optional(),
+  billTemplate: BillTemplateSchema.optional(),
+  primaryColor: z.string().optional(),
+  secondaryColor: z.string().optional(),
+  buttonHoverColor: z.string().optional(),
+  themeMode: z.enum(['light', 'dark']).optional(),
+  backgroundColor: z.string().optional(),
+  textColor: z.string().optional(),
+  createdAt: FirestoreTimestampSchema,
+  updatedAt: FirestoreTimestampSchema,
+})
+
+export type Settings = z.infer<typeof SettingsSchema>
+
+export const ThemeDocSchema = z.object({
+  themeMode: z.enum(['light', 'dark']).default('light'),
+  primaryColor: z.string().default('#000000'),
+  secondaryColor: z.string().default('#006a63'),
+  buttonHoverColor: z.string().default('#1f2937'),
+  backgroundColor: z.string().default('#f8f9ff'),
+  textColor: z.string().default('#0b1c30'),
+  createdAt: FirestoreTimestampSchema.optional(),
+  updatedAt: FirestoreTimestampSchema.optional(),
+})
+
+export type ThemeDoc = z.infer<typeof ThemeDocSchema>
+
+export const LibraryAssetSchema = z.object({
+  assetId: z.string().min(1, 'Asset ID is required'),
+  name: z.string().min(1, 'Asset name is required'),
+  url: z.string().url('Asset URL must be a valid URL'),
+  publicId: z.string().optional(),
+  type: z.string().min(1, 'File type / MIME is required'),
+  size: z.number().nonnegative('File size must be non-negative').optional(),
+  createdAt: FirestoreTimestampSchema,
+  updatedAt: FirestoreTimestampSchema,
+})
+
+export type LibraryAsset = z.infer<typeof LibraryAssetSchema>
+
+export const CounterSchema = z.object({
+  counterId: z.string().min(1, 'Counter ID is required'),
+  lastValue: z.number().int().nonnegative().default(0),
+  updatedAt: FirestoreTimestampSchema,
+})
+
+export type Counter = z.infer<typeof CounterSchema>
