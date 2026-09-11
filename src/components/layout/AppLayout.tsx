@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { Sidebar } from './Sidebar'
 import { TopNav } from './TopNav'
 import { ToastContainer } from '../common/ToastContainer'
+import { CategoryManagementDrawer } from '../categories/CategoryManagementDrawer'
+import { usePOS } from '../../context/POSContext'
 import { useNavigate } from '@tanstack/react-router'
 import { authService } from '../../lib/server/services/auth.service'
 
@@ -11,6 +13,7 @@ interface AppLayoutProps {
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const navigate = useNavigate()
+  const { isCategoryDrawerOpen, setIsCategoryDrawerOpen } = usePOS()
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null)
 
   useEffect(() => {
@@ -57,6 +60,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           </div>
         </main>
       </div>
+
+      {/* Category Management Drawer */}
+      <CategoryManagementDrawer
+        isOpen={isCategoryDrawerOpen}
+        onClose={() => setIsCategoryDrawerOpen(false)}
+      />
 
       {/* Reactive Global Notifications */}
       <ToastContainer />

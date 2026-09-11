@@ -1,8 +1,3 @@
-/**
- * Application environment configuration and validation.
- * Safely reads Vite environment variables (VITE_*) with fallback checks.
- */
-
 export interface FirebaseClientConfig {
   apiKey: string
   authDomain: string

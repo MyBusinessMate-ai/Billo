@@ -24,11 +24,21 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
   const mode = values.themeMode || 'light'
   const isDark = mode === 'dark'
 
-  const primaryColor = values.primaryColor || '#000000'
-  const secondaryColor = values.secondaryColor || '#006a63'
-  const buttonHoverColor = values.buttonHoverColor || '#1f2937'
-  const backgroundColor = values.backgroundColor || (isDark ? '#0b1326' : '#f8f9ff')
-  const textColor = values.textColor || (isDark ? '#f1f5f9' : '#0b1c30')
+  const primaryColor = values.primaryColor || (isDark ? '#38BDF8' : '#0891B2')
+  const secondaryColor = values.secondaryColor || (isDark ? '#17262D' : '#E2F3F6')
+  const buttonHoverColor = values.buttonHoverColor || (isDark ? '#0EA5E9' : '#0E7490')
+  const backgroundColor = values.backgroundColor || (isDark ? '#091013' : '#F5F8FA')
+  const textColor = values.textColor || (isDark ? '#EFFAFF' : '#132027')
+
+  // Detect which preset matches saved values initially
+  const initialMatchingPreset = PRESET_PALETTES.find(
+    (p) =>
+      p.primary.toLowerCase() === primaryColor.toLowerCase() &&
+      p.secondary.toLowerCase() === secondaryColor.toLowerCase() &&
+      p.background.toLowerCase() === backgroundColor.toLowerCase()
+  )
+
+  const [isCustomMode, setIsCustomMode] = useState<boolean>(!initialMatchingPreset)
 
   // Draft state while picker is open
   const [draftTheme, setDraftTheme] = useState({
@@ -51,70 +61,129 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
         backgroundColor,
         textColor,
       })
+      const isPreset = PRESET_PALETTES.some(
+        (p) =>
+          p.primary.toLowerCase() === primaryColor.toLowerCase() &&
+          p.secondary.toLowerCase() === secondaryColor.toLowerCase() &&
+          p.background.toLowerCase() === backgroundColor.toLowerCase()
+      )
+      setIsCustomMode(!isPreset)
     }
-  }, [mode, primaryColor, secondaryColor, buttonHoverColor, backgroundColor, textColor, isOpen])
+  }, [isOpen, mode, primaryColor, secondaryColor, buttonHoverColor, backgroundColor, textColor])
 
   // Initial snapshot to revert on Cancel
-  const initialSnapshotRef = React.useRef(draftTheme)
+  const initialSnapshotRef = React.useRef({ theme: draftTheme, isCustom: isCustomMode })
 
   const handleOpen = () => {
     initialSnapshotRef.current = {
-      themeMode: mode,
-      primaryColor,
-      secondaryColor,
-      buttonHoverColor,
-      backgroundColor,
-      textColor,
+      theme: {
+        themeMode: mode,
+        primaryColor,
+        secondaryColor,
+        buttonHoverColor,
+        backgroundColor,
+        textColor,
+      },
+      isCustom: isCustomMode,
     }
-    setDraftTheme(initialSnapshotRef.current)
+    setDraftTheme(initialSnapshotRef.current.theme)
     setIsOpen(true)
   }
 
   const handleCancel = () => {
-    // Revert live preview back to initial snapshot
+    // Revert local draft to initial snapshot
     const initial = initialSnapshotRef.current
-    updateThemeConfig(initial, true)
-    onChange?.('themeMode', initial.themeMode)
-    onChange?.('primaryColor', initial.primaryColor)
-    onChange?.('secondaryColor', initial.secondaryColor)
-    onChange?.('buttonHoverColor', initial.buttonHoverColor)
-    onChange?.('backgroundColor', initial.backgroundColor)
-    onChange?.('textColor', initial.textColor)
+    setDraftTheme(initial.theme)
+    setIsCustomMode(initial.isCustom)
+    updateThemeConfig(initial.theme, true)
+    onChange?.('themeMode', initial.theme.themeMode)
+    onChange?.('primaryColor', initial.theme.primaryColor)
+    onChange?.('secondaryColor', initial.theme.secondaryColor)
+    onChange?.('buttonHoverColor', initial.theme.buttonHoverColor)
+    onChange?.('backgroundColor', initial.theme.backgroundColor)
+    onChange?.('textColor', initial.theme.textColor)
     setIsOpen(false)
   }
 
   // Detect which preset matches draft colors (if any)
-  const matchingPreset = PRESET_PALETTES.find(
-    (p) =>
-      p.mode === draftTheme.themeMode &&
-      p.primary.toLowerCase() === draftTheme.primaryColor.toLowerCase() &&
-      p.secondary.toLowerCase() === draftTheme.secondaryColor.toLowerCase() &&
-      p.background.toLowerCase() === draftTheme.backgroundColor.toLowerCase()
-  )
+  const matchingPreset = isCustomMode
+    ? null
+    : PRESET_PALETTES.find(
+        (p) =>
+          p.primary.toLowerCase() === draftTheme.primaryColor.toLowerCase() &&
+          p.secondary.toLowerCase() === draftTheme.secondaryColor.toLowerCase() &&
+          p.background.toLowerCase() === draftTheme.backgroundColor.toLowerCase()
+      )
 
   const handleDraftColorInput = (field: string, val: string) => {
-    // Update local form state immediately without flashing the DOM while cursor is moving in picker
+    setIsCustomMode(true)
     setDraftTheme((prev) => ({ ...prev, [field]: val }))
   }
 
   const handleApplyColorCommit = (field: string, val: string) => {
-    // When the color picker window closes (onBlur) or a value is chosen, reflect to DOM
+    setIsCustomMode(true)
     if (val && (val.startsWith('#') || val.length >= 4)) {
       updateThemeConfig({ [field]: val }, true)
     }
   }
 
   const handleLiveModeToggle = (nextMode: 'light' | 'dark') => {
-    const nextBg = nextMode === 'dark' ? '#0b1326' : '#f8f9ff'
-    const nextText = nextMode === 'dark' ? '#f1f5f9' : '#0b1c30'
-    const next = {
-      ...draftTheme,
-      themeMode: nextMode,
-      backgroundColor: nextBg,
-      textColor: nextText,
+    if (isCustomMode || activeTab === 'custom') {
+      // IN CUSTOM MODE: Switching light/dark ONLY changes background from white to black or black to white
+      // without touching custom primary, secondary, and button colors!
+      const nextBg = nextMode === 'dark' ? '#121212' : '#ffffff'
+      const nextText = nextMode === 'dark' ? '#f8fafc' : '#111827'
+      const next = {
+        ...draftTheme,
+        themeMode: nextMode,
+        backgroundColor: nextBg,
+        textColor: nextText,
+      }
+      setIsCustomMode(true)
+      setDraftTheme(next)
+      updateThemeConfig(next, true)
+
+      if (!isOpen) {
+        onChange?.('themeMode', next.themeMode)
+        onChange?.('backgroundColor', next.backgroundColor)
+        onChange?.('textColor', next.textColor)
+        showToast(
+          `Switched custom theme to ${nextMode === 'dark' ? 'Dark' : 'Light'} background`,
+          'info'
+        )
+      }
+    } else {
+      // IN PRESET MODE: Switching light/dark activates the defined target preset
+      const targetPreset =
+        nextMode === 'dark'
+          ? PRESET_PALETTES.find((p) => p.mode === 'dark') || PRESET_PALETTES[2]
+          : PRESET_PALETTES.find((p) => p.mode === 'light') || PRESET_PALETTES[0]
+
+      const next = {
+        themeMode: nextMode,
+        primaryColor: targetPreset.primary,
+        secondaryColor: targetPreset.secondary,
+        buttonHoverColor: targetPreset.hover,
+        backgroundColor: targetPreset.background,
+        textColor: targetPreset.text,
+      }
+      setIsCustomMode(false)
+      setDraftTheme(next)
+      updateThemeConfig(next, true)
+
+      if (!isOpen) {
+        onChange?.('themeMode', next.themeMode)
+        onChange?.('primaryColor', next.primaryColor)
+        onChange?.('secondaryColor', next.secondaryColor)
+        onChange?.('buttonHoverColor', next.buttonHoverColor)
+        onChange?.('backgroundColor', next.backgroundColor)
+        onChange?.('textColor', next.textColor)
+        showToast(
+          `${nextMode === 'dark' ? 'Dark' : 'Light'} mode activated (${targetPreset.name})`,
+          'info'
+        )
+      }
     }
-    setDraftTheme(next)
-    updateThemeConfig(next, true)
   }
 
   const handleSelectPreset = (presetName: string) => {
@@ -129,6 +198,7 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
       backgroundColor: preset.background,
       textColor: preset.text,
     }
+    setIsCustomMode(false)
     setDraftTheme(next)
     // Live preview
     updateThemeConfig(next, true)
@@ -154,13 +224,14 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
   }
 
   // Active saved preset detection for collapsed badge
-  const activeSavedPreset = PRESET_PALETTES.find(
-    (p) =>
-      p.mode === mode &&
-      p.primary.toLowerCase() === primaryColor.toLowerCase() &&
-      p.secondary.toLowerCase() === secondaryColor.toLowerCase() &&
-      p.background.toLowerCase() === backgroundColor.toLowerCase()
-  )
+  const activeSavedPreset = isCustomMode
+    ? null
+    : PRESET_PALETTES.find(
+        (p) =>
+          p.primary.toLowerCase() === primaryColor.toLowerCase() &&
+          p.secondary.toLowerCase() === secondaryColor.toLowerCase() &&
+          p.background.toLowerCase() === backgroundColor.toLowerCase()
+      )
 
   return (
     <div className="bg-surface-container-lowest rounded-DEFAULT border border-outline-variant/40 p-pad-lg shadow-sm space-y-pad-md transition-colors">
@@ -182,19 +253,9 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
         <div className="flex items-center p-1 bg-surface-container-low rounded-DEFAULT border border-outline-variant/50 self-start sm:self-auto">
           <button
             type="button"
-            onClick={() => {
-              if (isOpen) {
-                handleLiveModeToggle('light')
-              } else {
-                handleLiveModeToggle('light')
-                onChange?.('themeMode', 'light')
-                onChange?.('backgroundColor', '#f8f9ff')
-                onChange?.('textColor', '#0b1c30')
-                showToast('Light mode activated', 'info')
-              }
-            }}
+            onClick={() => handleLiveModeToggle('light')}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-DEFAULT text-xs font-semibold transition-all cursor-pointer ${
-              (isOpen ? draftTheme.themeMode : mode) === 'light'
+              matchingPreset && (isOpen ? draftTheme.themeMode : mode) === 'light'
                 ? 'bg-surface-container-lowest text-on-surface shadow-2xs border border-outline-variant/40'
                 : 'text-on-surface-variant hover:text-on-surface'
             }`}
@@ -204,19 +265,9 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
           </button>
           <button
             type="button"
-            onClick={() => {
-              if (isOpen) {
-                handleLiveModeToggle('dark')
-              } else {
-                handleLiveModeToggle('dark')
-                onChange?.('themeMode', 'dark')
-                onChange?.('backgroundColor', '#0b1326')
-                onChange?.('textColor', '#f1f5f9')
-                showToast('Dark mode activated', 'info')
-              }
-            }}
+            onClick={() => handleLiveModeToggle('dark')}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-DEFAULT text-xs font-semibold transition-all cursor-pointer ${
-              (isOpen ? draftTheme.themeMode : mode) === 'dark'
+              matchingPreset && (isOpen ? draftTheme.themeMode : mode) === 'dark'
                 ? 'bg-surface-container-lowest text-on-surface shadow-2xs border border-outline-variant/40'
                 : 'text-on-surface-variant hover:text-on-surface'
             }`}
@@ -256,8 +307,8 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
                 <span className="font-semibold text-sm text-on-surface truncate">
                   {activeSavedPreset ? activeSavedPreset.name : 'Custom Palette'}
                 </span>
-                <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-surface-container-high text-on-surface-variant font-semibold">
-                  {mode}
+                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-semibold">
+                  {activeSavedPreset ? activeSavedPreset.mode : 'Custom'}
                 </span>
               </div>
               <p className="text-[11px] text-on-surface-variant font-mono mt-0.5 truncate">
@@ -297,7 +348,10 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab('custom')}
+                onClick={() => {
+                  setActiveTab('custom')
+                  setIsCustomMode(true)
+                }}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-DEFAULT text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === 'custom'
                     ? 'bg-primary text-on-primary shadow-2xs'
@@ -328,7 +382,7 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
                   />
                 </div>
                 <span className="font-semibold text-on-surface">
-                  {matchingPreset ? matchingPreset.name : 'Custom'}
+                  {!isCustomMode && matchingPreset ? matchingPreset.name : 'Custom'}
                 </span>
               </div>
             </div>
@@ -338,11 +392,7 @@ export const ThemeColorsForm: React.FC<ThemeColorsFormProps> = ({ values, onChan
           {activeTab === 'preset' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
               {PRESET_PALETTES.map((preset) => {
-                const isSelected =
-                  matchingPreset?.name === preset.name ||
-                  (draftTheme.primaryColor.toLowerCase() === preset.primary.toLowerCase() &&
-                    draftTheme.secondaryColor.toLowerCase() === preset.secondary.toLowerCase() &&
-                    draftTheme.backgroundColor.toLowerCase() === preset.background.toLowerCase())
+                const isSelected = !isCustomMode && matchingPreset?.name === preset.name
 
                 return (
                   <button

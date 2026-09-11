@@ -8,7 +8,6 @@ import type {
   AssetCategory,
 } from '../types/pos'
 import type { Category } from '../types/schema'
-import { INITIAL_CATEGORIES } from '../config/constants'
 
 import { customerService } from '../lib/server/services/customer.service'
 import { productService } from '../lib/server/services/product.service'
@@ -44,6 +43,13 @@ interface POSContextType {
   // Categories (Live from Firestore)
   categories: Category[]
   addCategory: (categoryName: string) => Promise<Category>
+  addBulkCategories: (
+    categoryNames: string[]
+  ) => Promise<{ addedCount: number; skippedCount: number }>
+  deleteCategory: (categoryId: string) => Promise<void>
+  isCategoryDrawerOpen: boolean
+  setIsCategoryDrawerOpen: (open: boolean) => void
+  openCategoryDrawer: () => void
 
   // Customers
   customers: Customer[]
@@ -98,7 +104,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...initialTheme,
     }
   })
-  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES)
+  const [categories, setCategories] = useState<Category[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [invoices, setInvoices] = useState<BillingInvoice[]>([])
@@ -112,6 +118,11 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [globalSearchQuery, setGlobalSearchQuery] = useState('')
   const [toasts, setToasts] = useState<ToastMessage[]>([])
   const [isBackendConnected, setIsBackendConnected] = useState<boolean>(Boolean(db))
+  const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState<boolean>(false)
+
+  const openCategoryDrawer = useCallback(() => {
+    setIsCategoryDrawerOpen(true)
+  }, [])
 
   // Live ticking clock
   const [currentTime, setCurrentTime] = useState('')
@@ -133,14 +144,14 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Apply theme on initial render and on settings change
   useEffect(() => {
+    const isDark = settings.themeMode === 'dark'
     const currentTheme: ThemeConfig = {
       themeMode: settings.themeMode || 'light',
-      primaryColor: settings.primaryColor || '#000000',
-      secondaryColor: settings.secondaryColor || '#006a63',
-      buttonHoverColor: settings.buttonHoverColor || '#1f2937',
-      backgroundColor:
-        settings.backgroundColor || (settings.themeMode === 'dark' ? '#0b1326' : '#f8f9ff'),
-      textColor: settings.textColor || (settings.themeMode === 'dark' ? '#f1f5f9' : '#0b1c30'),
+      primaryColor: settings.primaryColor || (isDark ? '#38BDF8' : '#0891B2'),
+      secondaryColor: settings.secondaryColor || (isDark ? '#17262D' : '#E2F3F6'),
+      buttonHoverColor: settings.buttonHoverColor || (isDark ? '#0EA5E9' : '#0E7490'),
+      backgroundColor: settings.backgroundColor || (isDark ? '#091013' : '#F5F8FA'),
+      textColor: settings.textColor || (isDark ? '#EFFAFF' : '#132027'),
     }
     applyThemeToDOM(currentTheme)
   }, [
@@ -180,9 +191,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     })
 
     const unsubCategories = categoryService.subscribe((liveCategories) => {
-      if (liveCategories && liveCategories.length > 0) {
-        setCategories(liveCategories)
-      }
+      setCategories(liveCategories || [])
     })
 
     const unsubProducts = productService.subscribe((liveProducts) => {
@@ -242,16 +251,14 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     async (theme: Partial<ThemeConfig>, silent: boolean = true) => {
       const nextSettings = { ...settings, ...theme }
       setSettings(nextSettings)
+      const isDark = nextSettings.themeMode === 'dark'
       const fullTheme: ThemeConfig = {
         themeMode: nextSettings.themeMode || 'light',
-        primaryColor: nextSettings.primaryColor || '#000000',
-        secondaryColor: nextSettings.secondaryColor || '#006a63',
-        buttonHoverColor: nextSettings.buttonHoverColor || '#1f2937',
-        backgroundColor:
-          nextSettings.backgroundColor ||
-          (nextSettings.themeMode === 'dark' ? '#0b1326' : '#f8f9ff'),
-        textColor:
-          nextSettings.textColor || (nextSettings.themeMode === 'dark' ? '#f1f5f9' : '#0b1c30'),
+        primaryColor: nextSettings.primaryColor || (isDark ? '#38BDF8' : '#0891B2'),
+        secondaryColor: nextSettings.secondaryColor || (isDark ? '#17262D' : '#E2F3F6'),
+        buttonHoverColor: nextSettings.buttonHoverColor || (isDark ? '#0EA5E9' : '#0E7490'),
+        backgroundColor: nextSettings.backgroundColor || (isDark ? '#091013' : '#F5F8FA'),
+        textColor: nextSettings.textColor || (isDark ? '#EFFAFF' : '#132027'),
       }
       applyThemeToDOM(fullTheme)
       await themeService.save(fullTheme)
@@ -275,14 +282,14 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       partial.backgroundColor !== undefined ||
       partial.textColor !== undefined
     ) {
+      const isDark = next.themeMode === 'dark'
       const fullTheme: ThemeConfig = {
         themeMode: next.themeMode || 'light',
-        primaryColor: next.primaryColor || '#000000',
-        secondaryColor: next.secondaryColor || '#006a63',
-        buttonHoverColor: next.buttonHoverColor || '#1f2937',
-        backgroundColor:
-          next.backgroundColor || (next.themeMode === 'dark' ? '#0b1326' : '#f8f9ff'),
-        textColor: next.textColor || (next.themeMode === 'dark' ? '#f1f5f9' : '#0b1c30'),
+        primaryColor: next.primaryColor || (isDark ? '#38BDF8' : '#0891B2'),
+        secondaryColor: next.secondaryColor || (isDark ? '#17262D' : '#E2F3F6'),
+        buttonHoverColor: next.buttonHoverColor || (isDark ? '#0EA5E9' : '#0E7490'),
+        backgroundColor: next.backgroundColor || (isDark ? '#091013' : '#F5F8FA'),
+        textColor: next.textColor || (isDark ? '#EFFAFF' : '#132027'),
       }
       themeService.save(fullTheme).catch(() => {})
     }
@@ -295,7 +302,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (err) {
       console.error('[POSContext] updateSettings error:', err)
       if (!silent) {
-        showToast('Store settings saved locally', 'info')
+        showToast('Firebase database error: Please check your .env configuration', 'error')
       }
     }
   }
@@ -314,11 +321,63 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addCategory = async (categoryName: string) => {
     try {
       const created = await categoryService.createCategory(categoryName)
-      showToast(`Category "${created.categoryName}" added (${created.categoryId})`, 'success')
+      setCategories((prev) => {
+        if (
+          prev.some(
+            (c) =>
+              c.categoryId === created.categoryId ||
+              c.categoryName.toLowerCase() === created.categoryName.toLowerCase()
+          )
+        ) {
+          return prev
+        }
+        return [...prev, created].sort((a, b) => a.categoryName.localeCompare(b.categoryName))
+      })
+      showToast(`Category "${created.categoryName}" added`, 'success')
       return created
     } catch (err) {
       console.error('[POSContext] addCategory error:', err)
       showToast('Failed to add category', 'error')
+      throw err
+    }
+  }
+
+  const addBulkCategories = async (categoryNames: string[]) => {
+    try {
+      const res = await categoryService.createBulkCategories(categoryNames)
+      if (res.added.length > 0) {
+        setCategories((prev) => {
+          const map = new Map(prev.map((c) => [c.categoryName.toLowerCase(), c]))
+          for (const item of res.added) {
+            map.set(item.categoryName.toLowerCase(), item)
+          }
+          return Array.from(map.values()).sort((a, b) =>
+            a.categoryName.localeCompare(b.categoryName)
+          )
+        })
+      }
+      showToast(
+        `Imported ${res.added.length} categories${
+          res.skipped.length > 0 ? ` (${res.skipped.length} duplicates skipped)` : ''
+        }`,
+        res.added.length > 0 ? 'success' : 'info'
+      )
+      return { addedCount: res.added.length, skippedCount: res.skipped.length }
+    } catch (err) {
+      console.error('[POSContext] addBulkCategories error:', err)
+      showToast('Failed to import categories', 'error')
+      throw err
+    }
+  }
+
+  const deleteCategory = async (categoryId: string) => {
+    try {
+      await categoryService.deleteCategory(categoryId)
+      setCategories((prev) => prev.filter((c) => c.categoryId !== categoryId))
+      showToast('Category removed', 'info')
+    } catch (err) {
+      console.error('[POSContext] deleteCategory error:', err)
+      showToast('Failed to delete category', 'error')
       throw err
     }
   }
@@ -654,6 +713,11 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetSettingsToDefault,
         categories,
         addCategory,
+        addBulkCategories,
+        deleteCategory,
+        isCategoryDrawerOpen,
+        setIsCategoryDrawerOpen,
+        openCategoryDrawer,
         customers,
         addCustomer,
         findCustomerByPhone,

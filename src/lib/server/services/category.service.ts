@@ -68,4 +68,31 @@ export const categoryService = {
       await deleteCategoryDoc(categoryId)
     }
   },
+
+  async createBulkCategories(
+    categoryNames: string[]
+  ): Promise<{ added: Category[]; skipped: string[] }> {
+    const existing = await fetchCategories().catch(() => [])
+    const existingNames = new Set(existing.map((c) => c.categoryName.trim().toLowerCase()))
+
+    const added: Category[] = []
+    const skipped: string[] = []
+
+    for (const rawName of categoryNames) {
+      const trimmed = typeof rawName === 'string' ? rawName.trim() : ''
+      if (!trimmed) continue
+      if (existingNames.has(trimmed.toLowerCase())) {
+        skipped.push(trimmed)
+        continue
+      }
+      try {
+        const cat = await this.createCategory(trimmed)
+        added.push(cat)
+        existingNames.add(trimmed.toLowerCase())
+      } catch (err) {
+        console.warn('[CategoryService] Bulk item failed:', trimmed, err)
+      }
+    }
+    return { added, skipped }
+  },
 }

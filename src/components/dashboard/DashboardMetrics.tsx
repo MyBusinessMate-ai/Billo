@@ -83,14 +83,18 @@ export const DashboardMetrics: React.FC = () => {
           </div>
           <div className="mt-2">
             <div className="font-mono-numeric-lg text-mono-numeric-lg text-on-surface font-semibold">
-              {settings.taxRatePercent ?? 5}% GST
+              {settings.taxRatePercent !== undefined && settings.taxRatePercent > 0
+                ? `${settings.taxRatePercent}% GST`
+                : '0% GST'}
             </div>
             <div className="flex items-center gap-1.5 mt-1 font-mono-numeric-sm text-mono-numeric-sm text-on-surface-variant">
               <span className="material-symbols-outlined text-[14px]">tune</span>
               <span className="truncate">
                 {settings.gstin && settings.gstin !== '0'
                   ? `GSTIN: ${settings.gstin}`
-                  : 'Standard Rate'}
+                  : settings.taxRatePercent && settings.taxRatePercent > 0
+                    ? 'Standard Rate'
+                    : 'No Tax Configured'}
               </span>
             </div>
           </div>

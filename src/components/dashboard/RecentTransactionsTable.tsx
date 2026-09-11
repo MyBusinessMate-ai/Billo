@@ -218,7 +218,7 @@ export const RecentTransactionsTable: React.FC<RecentTransactionsTableProps> = (
           </span>
           <span>•</span>
           <span className="text-on-surface font-mono-numeric-sm">
-            Cash Float: {formatINR(settings.cashDrawerBalance || 5000)}
+            Cash Float: {formatINR(settings.cashDrawerBalance || 0)}
           </span>
         </div>
         <div className="flex items-center gap-1">

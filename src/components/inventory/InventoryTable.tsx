@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import type { Product, StockStatus } from '../../types/pos'
 import { usePOS } from '../../context/POSContext'
 
@@ -7,7 +7,7 @@ interface InventoryTableProps {
 }
 
 export const InventoryTable: React.FC<InventoryTableProps> = ({ onEditProduct }) => {
-  const { products, quickRestockProduct } = usePOS()
+  const { products, quickRestockProduct, categories } = usePOS()
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -29,14 +29,22 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({ onEditProduct })
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  const categoryCounts = {
-    All: products.length || 428,
-    Dairy: products.filter((p) => p.category === 'Dairy').length || 45,
-    Bakery: products.filter((p) => p.category === 'Bakery').length || 32,
-    Beverages: products.filter((p) => p.category === 'Beverages').length || 88,
-    Produce: products.filter((p) => p.category === 'Produce').length || 64,
-    'Packaged Goods': products.filter((p) => p.category === 'Packaged Goods').length || 199,
-  }
+  const availableCategories = useMemo(() => {
+    const fromCategories = categories.map((c) => c.categoryName)
+    const fromProducts = products.map((p) => p.category).filter(Boolean)
+    const set = new Set([...fromCategories, ...fromProducts])
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [categories, products])
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      All: products.length,
+    }
+    availableCategories.forEach((cat) => {
+      counts[cat] = products.filter((p) => p.category === cat).length
+    })
+    return counts
+  }, [products, availableCategories])
 
   // Filtered Products
   const filteredProducts = products.filter((p) => {

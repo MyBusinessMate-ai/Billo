@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { X, PackagePlus } from 'lucide-react'
-import type { Product } from '../../types/pos'
 import { usePOS } from '../../context/POSContext'
 
 interface AddProductModalProps {
@@ -9,16 +8,16 @@ interface AddProductModalProps {
 }
 
 export const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose }) => {
-  const { addProduct, currentDate } = usePOS()
+  const { addProduct, currentDate, categories } = usePOS()
 
   const [name, setName] = useState('')
   const [sku, setSku] = useState('SKU-' + Math.floor(100000 + Math.random() * 900000))
   const [ean, setEan] = useState('EAN-' + Math.floor(100000 + Math.random() * 900000))
-  const [category, setCategory] = useState<Product['category']>('Dairy')
+  const [category, setCategory] = useState<string>(() => categories[0]?.categoryName || 'General')
   const [costPrice, setCostPrice] = useState<number>(1.5)
   const [sellingPrice, setSellingPrice] = useState<number>(200)
   const [stock, setStock] = useState<number>(50)
-  const [unit, setUnit] = useState<Product['unit']>('pcs')
+  const [unit, setUnit] = useState<string>('pcs')
 
   if (!isOpen) return null
 
@@ -108,14 +107,18 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClos
               </label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value as any)}
+                onChange={(e) => setCategory(e.target.value)}
                 className="w-full h-9 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900"
               >
-                <option value="Dairy">Dairy</option>
-                <option value="Bakery">Bakery</option>
-                <option value="Beverages">Beverages</option>
-                <option value="Produce">Produce</option>
-                <option value="Packaged Goods">Packaged Goods</option>
+                {categories.length > 0 ? (
+                  categories.map((c) => (
+                    <option key={c.categoryId} value={c.categoryName}>
+                      {c.categoryName}
+                    </option>
+                  ))
+                ) : (
+                  <option value="General">General</option>
+                )}
               </select>
             </div>
             <div>

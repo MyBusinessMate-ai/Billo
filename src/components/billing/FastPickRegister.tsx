@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import type { BillingItem } from '../../types/pos'
 import { usePOS } from '../../context/POSContext'
 
@@ -9,45 +9,27 @@ interface FastPickRegisterProps {
 export const FastPickRegister: React.FC<FastPickRegisterProps> = ({ onAddItem }) => {
   const { products, showToast } = usePOS()
 
-  const fastPickList = [
-    {
-      name: 'Fresh Whole Milk',
-      cat: 'Dairy',
-      price: 65.0,
-      key: '1',
-    },
-    {
-      name: 'Artisan Bread',
-      cat: 'Bakery',
-      price: 180.0,
-      key: '2',
-    },
-    {
-      name: 'Green Tea 100g',
-      cat: 'Beverages',
-      displayCat: 'Bev',
-      price: 210.0,
-      key: '3',
-    },
-    {
-      name: 'Greek Yogurt',
-      cat: 'Dairy',
-      price: 110.0,
-      key: '4',
-    },
-    {
-      name: 'Sparkling Water',
-      cat: 'Beverages',
-      displayCat: 'Bev',
-      price: 95.0,
-      key: '5',
-    },
-  ]
+  const fastPickList = useMemo(() => {
+    return products.slice(0, 5).map((p, idx) => ({
+      id: p.id,
+      name: p.name,
+      cat: p.category || 'General',
+      displayCat: p.category ? p.category.slice(0, 4) : 'Gen',
+      price: p.sellingPrice,
+      key: String(idx + 1),
+    }))
+  }, [products])
 
-  const handlePick = (item: (typeof fastPickList)[0]) => {
-    const matched = products.find((p) => p.name.includes(item.name))
+  const handlePick = (item: {
+    id: string
+    name: string
+    cat: string
+    displayCat: string
+    price: number
+    key: string
+  }) => {
     onAddItem({
-      productId: matched?.id || `fast-${item.key}`,
+      productId: item.id,
       name: item.name,
       category: item.cat,
       price: item.price,
@@ -69,13 +51,17 @@ export const FastPickRegister: React.FC<FastPickRegisterProps> = ({ onAddItem })
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [products])
+  }, [fastPickList])
+
+  if (fastPickList.length === 0) {
+    return null
+  }
 
   return (
     <div className="mt-pad-xs">
       <div className="flex items-center justify-between mb-2">
         <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
-          Fast Pick Register (Top Frequent Items)
+          Fast Pick Register (Frequent Items)
         </span>
         <span className="font-mono-numeric-sm text-mono-numeric-sm text-on-surface-variant">
           Alt + [1-5]

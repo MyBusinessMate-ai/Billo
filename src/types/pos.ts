@@ -22,12 +22,12 @@ export interface Product {
   name: string
   sku: string
   ean: string
-  category: 'Dairy' | 'Bakery' | 'Beverages' | 'Produce' | 'Packaged Goods'
+  category: string
   costPrice: number
   sellingPrice: number
   margin: number
   stock: number
-  unit: 'pcs' | 'kg' | 'packs' | 'bottles'
+  unit: string
   status: StockStatus
   lastRestocked: string
   imageUrl?: string

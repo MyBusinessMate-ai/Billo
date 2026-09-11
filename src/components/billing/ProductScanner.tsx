@@ -215,7 +215,7 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
         {/* Searchable Category Combobox */}
         <div className="md:col-span-3 relative" ref={categoryContainerRef}>
           <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1">
-            Category ({categories.length || '88'})
+            Category ({categories.length})
           </label>
           <div className="relative flex items-center">
             <input

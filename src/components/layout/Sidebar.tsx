@@ -4,7 +4,7 @@ import { usePOS } from '../../context/POSContext'
 import { authService } from '../../lib/server/services/auth.service'
 
 export const Sidebar: React.FC = () => {
-  const { settings } = usePOS()
+  const { settings, categories, isCategoryDrawerOpen, openCategoryDrawer } = usePOS()
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
   const navigate = useNavigate()
@@ -123,6 +123,25 @@ export const Sidebar: React.FC = () => {
             className="space-y-0.5"
             data-active-classes="bg-surface-container-high text-on-surface font-semibold"
           >
+            {/* Add Category Action (Opens Category Drawer) */}
+            <button
+              type="button"
+              onClick={openCategoryDrawer}
+              className={`w-full flex items-center justify-between px-pad-xs py-1.5 rounded-DEFAULT transition-colors cursor-pointer ${
+                isCategoryDrawerOpen
+                  ? 'bg-surface-container-high text-on-surface font-semibold'
+                  : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px]">category</span>
+                <span className="font-label-md text-label-md">Add Category</span>
+              </div>
+              <span className="font-label-sm text-[10px] bg-surface-container-high text-on-surface px-1.5 py-0.5 rounded font-bold">
+                {categories.length}
+              </span>
+            </button>
+
             {management.map((item) => {
               const active = isCurrent(item.path)
               return (
