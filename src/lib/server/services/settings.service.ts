@@ -67,12 +67,12 @@ export const defaultSettings: UIStoreSettings = {
   cashDrawerBalance: 0,
   invoiceFormat: 'thermal',
   billTemplate: defaultBillTemplate,
-  primaryColor: '#0891B2',
-  secondaryColor: '#E2F3F6',
-  buttonHoverColor: '#0E7490',
+  primaryColor: '#000000',
+  secondaryColor: '#006A63',
+  buttonHoverColor: '#1F2937',
   themeMode: 'light',
-  backgroundColor: '#F5F8FA',
-  textColor: '#132027',
+  backgroundColor: '#F8F9FF',
+  textColor: '#0B1C30',
 }
 
 export function mapFirestoreSettingsToUI(s: FirestoreSettings | null): UIStoreSettings {

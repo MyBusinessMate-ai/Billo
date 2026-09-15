@@ -9,6 +9,7 @@ import {
   onSnapshot,
   serverTimestamp,
   updateDoc,
+  deleteDoc,
   type Unsubscribe,
   type DocumentReference,
 } from 'firebase/firestore'
@@ -87,4 +88,11 @@ export async function updateBillingStatusDoc(billingId: string, status: string):
     status,
     updatedAt: serverTimestamp(),
   })
+}
+
+export async function deleteBillingDoc(billingId: string): Promise<void> {
+  if (!db) throw new Error('Firestore is not initialized')
+  const cleanId = billingId.startsWith('#') ? billingId.slice(1) : billingId
+  const ref = doc(db, COLLECTIONS.BILLINGS, cleanId)
+  await deleteDoc(ref)
 }

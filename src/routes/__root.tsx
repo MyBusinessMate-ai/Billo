@@ -39,7 +39,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       },
       {
         rel: 'stylesheet',
-        href: 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200',
+        href: 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap',
       },
       {
         rel: 'stylesheet',
@@ -56,7 +56,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body className="antialiased bg-slate-50 text-slate-900 font-sans selection:bg-sky-100">
+      <body className="antialiased bg-surface text-on-surface font-sans selection:bg-primary/20">
         <POSProvider>{children}</POSProvider>
         <Scripts />
       </body>

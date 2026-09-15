@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import type { BillingInvoice } from '../../types/pos'
 import { usePOS } from '../../context/POSContext'
@@ -17,18 +17,56 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
   onClose,
   onOpenReceipt,
 }) => {
-  const { invoices, showToast, settings } = usePOS()
+  const { invoices, showToast, settings, deleteInvoice } = usePOS()
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  // Reset confirmation state whenever drawer opens/closes or invoice changes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsConfirmingDelete(false)
+      setIsDeleting(false)
+    }
+  }, [isOpen, invoice?.id])
+
+  // Handle keyboard escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isConfirmingDelete) {
+          setIsConfirmingDelete(false)
+        } else if (isOpen) {
+          onClose()
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose, isConfirmingDelete])
 
   if (!isOpen || !invoice) return null
 
+  const cleanInvoiceId = invoice.id.startsWith('#') ? invoice.id.slice(1) : invoice.id
+  const displayInvoiceId = `#${cleanInvoiceId}`
+
   const handleCopyId = () => {
-    navigator.clipboard.writeText(invoice.id)
-    showToast(`Copied ${invoice.id} to clipboard`, 'info')
+    navigator.clipboard.writeText(displayInvoiceId)
+    showToast(`Copied ${displayInvoiceId} to clipboard`, 'info')
   }
 
-  // const handleResend = () => {
-  //   showToast(`Digital invoice resent to ${invoice.customer.phone}`, 'success')
-  // }
+  const handleConfirmDelete = async () => {
+    if (!invoice) return
+    setIsDeleting(true)
+    try {
+      await deleteInvoice(invoice.id)
+      setIsConfirmingDelete(false)
+      onClose()
+    } catch {
+      // Handled in context
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   const totalUnits = invoice.items.reduce((s, i) => s + i.quantity, 0)
 
@@ -59,7 +97,7 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
 
   return (
     <>
-      {/* Active Backdrop Scrim (Structured Non-Blurred Dim) */}
+      {/* Active Backdrop Scrim */}
       <div
         className="fixed inset-0 top-14 left-[270px] bg-inverse-surface/30 z-40 transition-opacity duration-300"
         onClick={onClose}
@@ -81,19 +119,30 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
                 Invoice Details
               </span>
             </div>
-            <button
-              id="closeDrawerBtn"
-              type="button"
-              onClick={onClose}
-              className="p-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-DEFAULT transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[20px]">close</span>
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setIsConfirmingDelete(true)}
+                className="p-1 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-DEFAULT transition-colors cursor-pointer"
+                title="Delete this bill"
+              >
+                <span className="material-symbols-outlined text-[20px]">delete</span>
+              </button>
+              <button
+                id="closeDrawerBtn"
+                type="button"
+                onClick={onClose}
+                className="p-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-DEFAULT transition-colors cursor-pointer"
+                title="Close panel"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
           </div>
           <div className="flex items-center justify-between pt-1">
             <div className="flex items-center gap-2">
               <span className="font-mono-numeric-lg text-title-lg font-bold text-on-surface">
-                #{invoice.id}
+                {displayInvoiceId}
               </span>
               <button
                 type="button"
@@ -276,37 +325,92 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
         </div>
 
         {/* Drawer Fixed Footer Action Buttons */}
-        <div className="p-pad-md bg-surface-container-low flex flex-col gap-2 border-t border-outline-variant/30">
-          <div className="grid grid-cols-2 gap-2">
+        <div className="p-pad-md bg-surface-container-low flex flex-col gap-2.5 border-t border-outline-variant/30">
+          <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => onOpenReceipt(invoice)}
-              className="flex items-center justify-center gap-2 bg-primary hover:bg-inverse-surface text-on-primary h-button-lg rounded-DEFAULT font-label-md text-label-md font-semibold transition-colors shadow-sm cursor-pointer"
+              className="flex items-center justify-center gap-2 bg-primary hover:bg-inverse-surface text-on-primary p-3 px-4 min-h-[46px] rounded-DEFAULT font-label-md text-label-md font-semibold transition-all shadow-sm cursor-pointer active:scale-[0.99]"
             >
-              <span className="material-symbols-outlined text-[18px]">print</span>
+              <span className="material-symbols-outlined text-[20px]">print</span>
               <span>Print Receipt</span>
             </button>
             <button
               type="button"
-              onClick={() => showToast(`Downloaded ${invoice.id}.pdf`, 'info')}
-              className="flex items-center justify-center gap-2 bg-surface-container-lowest hover:bg-surface-container text-on-surface h-button-lg rounded-DEFAULT font-label-md text-label-md font-semibold transition-colors shadow-sm cursor-pointer"
+              onClick={() => showToast(`Downloaded ${displayInvoiceId}.pdf`, 'info')}
+              className="flex items-center justify-center gap-2 bg-surface-container-lowest hover:bg-surface-container text-on-surface p-3 px-4 min-h-[46px] rounded-DEFAULT font-label-md text-label-md font-semibold transition-all shadow-sm border border-outline-variant/40 cursor-pointer active:scale-[0.99]"
             >
-              <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+              <span className="material-symbols-outlined text-[20px]">picture_as_pdf</span>
               <span>Download PDF</span>
             </button>
           </div>
-          {/* <button
+
+          {/* Delete Bill Action Button */}
+          <button
             type="button"
-            onClick={handleResend}
-            className="flex items-center justify-center gap-2 bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface h-button-sm rounded-DEFAULT font-label-sm text-label-sm font-medium transition-colors cursor-pointer"
+            onClick={() => setIsConfirmingDelete(true)}
+            className="w-full flex items-center justify-center gap-2 text-error hover:text-on-error bg-error-container/15 hover:bg-error border border-error/30 p-2.5 rounded-DEFAULT font-label-md text-label-sm font-semibold transition-all cursor-pointer active:scale-[0.99]"
           >
-            <span className="material-symbols-outlined text-[16px]">forward_to_inbox</span>
-            <span>
-              Resend to {invoice.customer.name} ({invoice.customer.phone})
-            </span>
-          </button> */}
+            <span className="material-symbols-outlined text-[18px]">delete_forever</span>
+            <span>Delete Bill</span>
+          </button>
         </div>
       </aside>
+
+      {/* Confirmation Modal Panel for Bill Deletion */}
+      {isConfirmingDelete && (
+        <div
+          className="fixed inset-0 z-60 bg-inverse-surface/60 backdrop-blur-2xs flex items-center justify-center p-4 animate-fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isDeleting) {
+              setIsConfirmingDelete(false)
+            }
+          }}
+        >
+          <div className="bg-surface-container-lowest border border-outline-variant/40 rounded-DEFAULT shadow-2xl p-pad-lg max-w-sm w-full flex flex-col gap-pad-md animate-scale-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-error-container/40 text-error flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[22px]">delete_forever</span>
+              </div>
+              <div className="flex flex-col min-w-0">
+                <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold">
+                  Delete Bill?
+                </h3>
+                <p className="font-mono-numeric-sm text-[12px] text-on-surface-variant truncate">
+                  {displayInvoiceId} • ₹{invoice.netTotal.toLocaleString('en-IN')}.00
+                </p>
+              </div>
+            </div>
+
+            <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+              Are you sure you want to permanently delete bill{' '}
+              <strong className="text-on-surface font-semibold">{displayInvoiceId}</strong> for{' '}
+              <strong className="text-on-surface font-semibold">{invoice.customer.name}</strong>?
+              This record will be permanently removed from billing history.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-outline-variant/20">
+              <button
+                type="button"
+                onClick={() => setIsConfirmingDelete(false)}
+                disabled={isDeleting}
+                className="px-3.5 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface rounded-DEFAULT font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="px-4 py-1.5 bg-error text-on-error hover:bg-error/90 disabled:opacity-50 rounded-DEFAULT font-semibold text-xs transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">delete</span>
+                <span>{isDeleting ? 'Deleting...' : 'Confirm Delete'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

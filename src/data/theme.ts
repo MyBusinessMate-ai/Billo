@@ -10,6 +10,15 @@ export interface PaletteOption {
 
 export const PRESET_PALETTES: PaletteOption[] = [
   {
+    name: 'Default',
+    mode: 'light',
+    primary: '#000000',
+    secondary: '#006A63',
+    hover: '#1F2937',
+    background: '#F8F9FF',
+    text: '#0B1C30',
+  },
+  {
     name: 'Cyan slate',
     mode: 'light',
     primary: '#0891B2',

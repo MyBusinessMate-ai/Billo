@@ -2,6 +2,12 @@ import React, { useState } from 'react'
 import type { BillingInvoice } from '../../types/pos'
 import { usePOS } from '../../context/POSContext'
 import { formatINR } from '../../utils/formatters'
+import { DateRangeFilter } from '../common/DateRangeFilter'
+import {
+  matchesDateFilter,
+  exportBillingInvoicesToCSV,
+  type DateFilterState,
+} from '../../utils/dateFilter'
 
 interface BillingHistoryTableProps {
   onSelectInvoice: (invoice: BillingInvoice) => void
@@ -13,19 +19,18 @@ export const BillingHistoryTable: React.FC<BillingHistoryTableProps> = ({
   onSelectInvoice,
   selectedInvoiceId,
 }) => {
-  const { invoices, currentDate } = usePOS()
+  const { invoices, currentDate, showToast } = usePOS()
 
   const [statusTab] = useState<'all' | 'settled' | 'hold' | 'refund'>('all')
   const [paymentFilter, setPaymentFilter] = useState('all')
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ type: 'all' })
   const [currentPage, setCurrentPage] = useState(1)
   const rowsPerPage = 7
 
-  const totalSettled = invoices
-    .filter((inv) => inv.status === 'completed')
-    .reduce((sum, inv) => sum + inv.netTotal, 0)
-
-  // Filtered Invoices
+  // Filtered Invoices based on Date, Payment Rail, and Status
   const filteredInvoices = invoices.filter((inv) => {
+    const matchesDate = matchesDateFilter(inv.date, dateFilter, currentDate)
+
     const matchesStatus =
       statusTab === 'all'
         ? true
@@ -39,14 +44,27 @@ export const BillingHistoryTable: React.FC<BillingHistoryTableProps> = ({
       paymentFilter === 'all' ||
       inv.paymentMethod.toLowerCase().includes(paymentFilter.toLowerCase())
 
-    return matchesStatus && matchesPayment
+    return matchesDate && matchesStatus && matchesPayment
   })
+
+  const totalSettled = filteredInvoices
+    .filter((inv) => inv.status === 'completed')
+    .reduce((sum, inv) => sum + inv.netTotal, 0)
 
   const totalPages = Math.ceil(filteredInvoices.length / rowsPerPage) || 1
   const paginatedInvoices = filteredInvoices.slice(
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   )
+
+  const handleExportBillingList = () => {
+    if (filteredInvoices.length === 0) {
+      showToast('No invoices match the current filter to export.', 'info')
+      return
+    }
+    exportBillingInvoicesToCSV(filteredInvoices, 'LedgerPOS_Billing_History')
+    showToast(`Exported ${filteredInvoices.length} billing records to CSV`, 'success')
+  }
 
   return (
     <div className="flex flex-col gap-pad-md">
@@ -64,8 +82,8 @@ export const BillingHistoryTable: React.FC<BillingHistoryTableProps> = ({
             </span>
           </div>
 
-          {/* Quick Metrics Ribbon */}
-          <div className="flex items-center gap-3">
+          {/* Quick Metrics & Export Button Ribbon */}
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="bg-surface-container-low px-3 py-1.5 rounded-DEFAULT flex items-center gap-3">
               <div className="flex flex-col">
                 <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
@@ -84,31 +102,47 @@ export const BillingHistoryTable: React.FC<BillingHistoryTableProps> = ({
                   Invoices
                 </span>
                 <span className="font-mono-numeric-md text-mono-numeric-md text-on-surface font-semibold">
-                  {invoices.length} Trans.
+                  {filteredInvoices.length} Trans.
                 </span>
               </div>
               <span className="material-symbols-outlined text-on-surface-variant text-[20px]">
                 receipt
               </span>
             </div>
+
+            {/* Export Filtered Billing List Button */}
+            <button
+              type="button"
+              id="export-billing-list-btn"
+              onClick={handleExportBillingList}
+              disabled={filteredInvoices.length === 0}
+              className="flex items-center gap-2 px-4 py-2.5 bg-secondary text-on-secondary hover:bg-on-secondary-container rounded-DEFAULT font-label-md text-label-md font-semibold transition-all cursor-pointer shadow-xs disabled:opacity-40 active:scale-[0.99]"
+              title="Download filtered transactions as CSV"
+            >
+              <span className="material-symbols-outlined text-[18px]">download</span>
+              <span>Export Billing List</span>
+              <span className="font-mono-numeric-sm text-[11px] bg-black/15 dark:bg-white/20 px-2 py-0.5 rounded font-semibold ml-0.5">
+                {filteredInvoices.length}
+              </span>
+            </button>
           </div>
         </div>
 
         {/* Filter Control Bar */}
         <div className="flex flex-wrap items-center justify-between gap-pad-sm pt-pad-xs border-t border-outline-variant/20">
           <div className="flex flex-wrap items-center gap-2">
-            {/* Date Selector */}
-            <div className="flex items-center gap-2 bg-surface-container-low px-3 py-1.5 rounded-DEFAULT shadow-sm">
-              <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
-                calendar_today
-              </span>
-              <span className="font-label-md text-label-md text-on-surface font-semibold">
-                Date: {currentDate || 'Today'}
-              </span>
-            </div>
+            {/* Date Preset & Custom Range Dropdown Filter */}
+            <DateRangeFilter
+              filter={dateFilter}
+              onChange={(newFilter) => {
+                setDateFilter(newFilter)
+                setCurrentPage(1)
+              }}
+              referenceDate={currentDate}
+            />
 
             {/* Payment Mode Filter */}
-            <div className="flex items-center gap-2 bg-surface-container-low px-3 py-1.5 rounded-DEFAULT shadow-sm">
+            <div className="flex items-center gap-2 bg-surface-container-low px-3 py-1.5 rounded-DEFAULT shadow-sm border border-outline-variant/30">
               <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
                 filter_alt
               </span>
@@ -129,31 +163,6 @@ export const BillingHistoryTable: React.FC<BillingHistoryTableProps> = ({
               </select>
             </div>
           </div>
-
-          {/* Status Tabs */}
-          {/* <div className="flex items-center gap-1 bg-surface-container-low p-0.5 rounded-DEFAULT">
-            {[
-              { id: 'all', label: 'All Invoices' },
-              { id: 'settled', label: 'Settled' },
-              { id: 'refund', label: 'Refunded' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => {
-                  setStatusTab(tab.id as any)
-                  setCurrentPage(1)
-                }}
-                className={`px-3 py-1 text-label-sm font-label-sm rounded-DEFAULT transition-colors cursor-pointer ${
-                  statusTab === tab.id
-                    ? 'bg-surface-container-lowest text-on-surface font-semibold shadow-xs'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div> */}
         </div>
       </div>
 

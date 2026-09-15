@@ -1,17 +1,60 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { usePOS } from '../../context/POSContext'
 import { formatINR } from '../../utils/formatters'
+import { DateRangeFilter } from '../common/DateRangeFilter'
+import { matchesDateFilter, getDateFilterLabel, type DateFilterState } from '../../utils/dateFilter'
 
 export const DashboardMetrics: React.FC = () => {
-  const { settings, invoices, customers } = usePOS()
+  const { settings, invoices, customers, currentDate } = usePOS()
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ type: 'all' })
 
   const completedInvoices = invoices.filter((i) => i.status === 'completed')
-  const totalBillings = completedInvoices.reduce((sum, i) => sum + i.netTotal, 0)
-  const averageOrderValue =
-    completedInvoices.length > 0 ? totalBillings / completedInvoices.length : 0
+
+  // Filter completed invoices according to selected date period
+  const filteredCompletedInvoices = completedInvoices.filter((inv) =>
+    matchesDateFilter(inv.date, dateFilter, currentDate)
+  )
+
+  const totalBillings = filteredCompletedInvoices.reduce((sum, i) => sum + i.netTotal, 0)
+  const ordersCount = filteredCompletedInvoices.length
+  const averageOrderValue = ordersCount > 0 ? totalBillings / ordersCount : 0
+
+  // Count active customers in period (or directory count if All Time)
+  const periodCustomerSet = new Set(
+    filteredCompletedInvoices.map(
+      (i) =>
+        i.customer.id ||
+        (i.customer.phone && i.customer.phone !== '—' ? i.customer.phone : i.customer.name)
+    )
+  )
+  const displayCustomersCount =
+    dateFilter.type === 'all' ? customers.length : periodCustomerSet.size
+
+  const activePeriodLabel = getDateFilterLabel(dateFilter)
 
   return (
-    <div className="bg-surface-container-lowest rounded-DEFAULT p-pad-md shadow-sm">
+    <div className="bg-surface-container-lowest rounded-DEFAULT p-pad-md shadow-sm space-y-pad-md">
+      {/* Metrics Header with Filter Dropdown */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-outline-variant/20">
+        <div className="flex items-center gap-2">
+          <span className="font-label-sm text-label-sm uppercase tracking-wider text-on-surface font-bold">
+            Performance Metrics
+          </span>
+          <span className="text-[11px] font-mono-numeric-sm px-2 py-0.5 rounded-DEFAULT bg-surface-container text-on-surface-variant font-medium">
+            Period: {activePeriodLabel}
+          </span>
+        </div>
+
+        {/* Date Filter Dropdown Panel */}
+        <DateRangeFilter
+          filter={dateFilter}
+          onChange={setDateFilter}
+          referenceDate={currentDate}
+          align="right"
+        />
+      </div>
+
+      {/* Metric Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-pad-md divide-y lg:divide-y-0 sm:divide-x-0">
         {/* Metric 1: Total Billings */}
         <div className="flex flex-col justify-between pr-0 lg:pr-pad-md">
@@ -25,9 +68,11 @@ export const DashboardMetrics: React.FC = () => {
             <div className="font-mono-numeric-lg text-mono-numeric-lg text-on-surface tracking-tight font-semibold">
               {formatINR(totalBillings)}
             </div>
-            <div className="flex items-center gap-1.5 mt-1 font-mono-numeric-sm text-mono-numeric-sm text-secondary">
+            <div className="flex items-center gap-1.5 mt-1 font-mono-numeric-sm text-mono-numeric-sm text-secondary font-medium">
               <span className="material-symbols-outlined text-[14px]">receipt_long</span>
-              <span>{completedInvoices.length} Orders Settled</span>
+              <span>
+                {ordersCount} {ordersCount === 1 ? 'Order' : 'Orders'} Settled
+              </span>
             </div>
           </div>
         </div>
@@ -47,7 +92,9 @@ export const DashboardMetrics: React.FC = () => {
               {formatINR(averageOrderValue)}
             </div>
             <div className="flex items-center gap-1.5 mt-1 font-mono-numeric-sm text-mono-numeric-sm text-on-surface-variant">
-              <span>{customers.length} Customers</span>
+              <span>
+                {displayCustomersCount} {displayCustomersCount === 1 ? 'Customer' : 'Customers'}
+              </span>
             </div>
           </div>
         </div>
@@ -62,11 +109,11 @@ export const DashboardMetrics: React.FC = () => {
           </div>
           <div className="mt-2">
             <div className="font-mono-numeric-lg text-mono-numeric-lg text-on-surface tracking-tight font-semibold">
-              {customers.length} Customers
+              {displayCustomersCount} {displayCustomersCount === 1 ? 'Customer' : 'Customers'}
             </div>
             <div className="flex items-center gap-1.5 mt-1 font-mono-numeric-sm text-mono-numeric-sm text-on-surface-variant">
               <span className="material-symbols-outlined text-[14px]">contacts</span>
-              <span>Active Directory</span>
+              <span>{dateFilter.type === 'all' ? 'Active Directory' : 'Transacted in Period'}</span>
             </div>
           </div>
         </div>

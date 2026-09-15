@@ -88,10 +88,20 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
     setIsCategoryDropdownOpen(false)
     setActiveIndex(0)
 
+    const catObj = categories.find(
+      (c) => c.categoryName.trim().toLowerCase() === catName.trim().toLowerCase()
+    )
     const matched = products.find((p) => p.category === catName)
+
     if (matched) {
       setProductName(matched.name)
-      setCustomPrice(matched.sellingPrice)
+      setCustomPrice(
+        catObj && typeof catObj.basePrice === 'number' && catObj.basePrice > 0
+          ? catObj.basePrice
+          : matched.sellingPrice
+      )
+    } else if (catObj && typeof catObj.basePrice === 'number' && catObj.basePrice > 0) {
+      setCustomPrice(catObj.basePrice)
     }
   }
 
@@ -263,7 +273,14 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
                               : 'text-on-surface hover:bg-surface-container-low'
                         }`}
                       >
-                        <span className="truncate">{cat.categoryName}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="truncate">{cat.categoryName}</span>
+                          {typeof cat.basePrice === 'number' && cat.basePrice > 0 && (
+                            <span className="text-[10px] font-mono-numeric-sm bg-secondary/15 text-secondary px-1.5 py-0.2 rounded font-medium shrink-0">
+                              ₹{cat.basePrice}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] font-mono-numeric-sm text-on-surface-variant/60 ml-2 shrink-0">
                           {cat.categoryId}
                         </span>

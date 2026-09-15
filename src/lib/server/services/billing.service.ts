@@ -3,6 +3,7 @@ import {
   fetchRecentBillings,
   createBillingDocInTransaction,
   updateBillingStatusDoc,
+  deleteBillingDoc,
   subscribeBillings,
 } from '../repositories/billing.repository'
 import { getNextSequentialId } from '../repositories/counter.repository'
@@ -32,6 +33,11 @@ export function mapFirestoreBillingToUI(b: FirestoreBilling): UIBillingInvoice {
     total: it.total,
   }))
 
+  const computedSubtotal = itemsMapped.reduce((s, it) => s + it.total, 0)
+  const subtotal = b.subtotal ?? (computedSubtotal > 0 ? computedSubtotal : b.total)
+  const taxAmount = b.taxAmount ?? Math.round(subtotal * 0.05 * 100) / 100
+  const discountAmount = b.discountAmount ?? 0
+
   return {
     id: `#${b.billingId}`,
     numericId: isNaN(numericPart) ? 1 : numericPart,
@@ -43,10 +49,11 @@ export function mapFirestoreBillingToUI(b: FirestoreBilling): UIBillingInvoice {
       isWalkIn: !b.customerId,
     },
     items: itemsMapped,
-    subtotal: b.total,
-    taxPercent: 5,
-    taxAmount: Math.round(b.total * 0.05 * 100) / 100,
-    discountAmount: 0,
+    subtotal,
+    taxPercent: b.taxPercent ?? 5,
+    taxAmount,
+    discountCode: b.discountCode,
+    discountAmount,
     netTotal: b.total,
     paymentMethod: b.billMode === 'upi' ? 'UPI / QR' : b.billMode === 'card' ? 'Card' : 'Cash',
     status: 'completed' as InvoiceStatus,
@@ -88,6 +95,7 @@ export const billingService = {
     subtotal: number
     taxPercent: number
     taxAmount: number
+    discountCode?: string
     discountAmount: number
     netTotal: number
     billMode: 'cash' | 'upi' | 'card'
@@ -149,6 +157,11 @@ export const billingService = {
           ...(invoiceData.customerPhone ? { customerPhone: invoiceData.customerPhone } : {}),
           ...(invoiceData.customerEmail ? { customerEmail: invoiceData.customerEmail } : {}),
           items: firestoreItems,
+          subtotal: invoiceData.subtotal,
+          taxPercent: invoiceData.taxPercent,
+          taxAmount: invoiceData.taxAmount,
+          ...(invoiceData.discountCode ? { discountCode: invoiceData.discountCode } : {}),
+          discountAmount: invoiceData.discountAmount,
           total: invoiceData.netTotal,
           billMode: invoiceData.billMode,
           createdAt: { seconds: nowSeconds, nanoseconds: 0 },
@@ -165,6 +178,12 @@ export const billingService = {
   async refundInvoice(billingId: string): Promise<void> {
     if (db) {
       await updateBillingStatusDoc(billingId, 'refunded')
+    }
+  },
+
+  async deleteInvoice(billingId: string): Promise<void> {
+    if (db) {
+      await deleteBillingDoc(billingId)
     }
   },
 }

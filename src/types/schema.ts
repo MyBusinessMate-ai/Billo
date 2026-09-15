@@ -45,6 +45,7 @@ export const CategoryIdSchema = z
 export const CategorySchema = z.object({
   categoryId: CategoryIdSchema,
   categoryName: z.string().min(1, 'Category name is required'),
+  basePrice: z.number().nonnegative('Base price must be non-negative').optional(),
   createdAt: FirestoreTimestampSchema,
   updatedAt: FirestoreTimestampSchema,
 })
@@ -89,6 +90,11 @@ export const BillingSchema = z.object({
   customerPhone: z.string().optional(),
   customerEmail: z.string().optional(),
   items: z.array(BillingItemSchema).min(1, 'Billing invoice must contain at least one item'),
+  subtotal: z.number().optional(),
+  taxPercent: z.number().optional(),
+  taxAmount: z.number().optional(),
+  discountCode: z.string().optional(),
+  discountAmount: z.number().optional(),
   total: z.number().nonnegative('Billing total must be non-negative'),
   billMode: BillingModeSchema,
   createdAt: FirestoreTimestampSchema,

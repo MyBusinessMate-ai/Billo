@@ -5,11 +5,11 @@ export type { ThemeConfig }
 
 export const DEFAULT_LIGHT_THEME: ThemeConfig = {
   themeMode: 'light',
-  primaryColor: '#0891B2',
-  secondaryColor: '#E2F3F6',
-  buttonHoverColor: '#0E7490',
-  backgroundColor: '#F5F8FA',
-  textColor: '#132027',
+  primaryColor: '#000000',
+  secondaryColor: '#006A63',
+  buttonHoverColor: '#1F2937',
+  backgroundColor: '#F8F9FF',
+  textColor: '#0B1C30',
 }
 
 export const DEFAULT_DARK_THEME: ThemeConfig = {

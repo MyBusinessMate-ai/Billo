@@ -42,9 +42,13 @@ interface POSContextType {
 
   // Categories (Live from Firestore)
   categories: Category[]
-  addCategory: (categoryName: string) => Promise<Category>
+  addCategory: (categoryName: string, basePrice?: number) => Promise<Category>
+  updateCategory: (
+    categoryId: string,
+    data: { categoryName?: string; basePrice?: number }
+  ) => Promise<void>
   addBulkCategories: (
-    categoryNames: string[]
+    categoryNames: Array<string | { categoryName: string; basePrice?: number }>
   ) => Promise<{ addedCount: number; skippedCount: number }>
   deleteCategory: (categoryId: string) => Promise<void>
   isCategoryDrawerOpen: boolean
@@ -71,6 +75,7 @@ interface POSContextType {
   addInvoice: (invoice: Omit<BillingInvoice, 'id' | 'numericId'>) => BillingInvoice
   getInvoiceById: (id: string) => BillingInvoice | undefined
   refundInvoice: (id: string) => void
+  deleteInvoice: (id: string) => Promise<void>
 
   // Assets & Library
   assets: MediaAsset[]
@@ -318,9 +323,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('Settings reset to default', 'info')
   }
 
-  const addCategory = async (categoryName: string) => {
+  const addCategory = async (categoryName: string, basePrice?: number) => {
     try {
-      const created = await categoryService.createCategory(categoryName)
+      const created = await categoryService.createCategory(categoryName, basePrice)
       setCategories((prev) => {
         if (
           prev.some(
@@ -342,7 +347,35 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }
 
-  const addBulkCategories = async (categoryNames: string[]) => {
+  const updateCategory = async (
+    categoryId: string,
+    data: { categoryName?: string; basePrice?: number }
+  ) => {
+    try {
+      await categoryService.updateCategory(categoryId, data)
+      setCategories((prev) =>
+        prev.map((c) => {
+          if (c.categoryId === categoryId) {
+            return {
+              ...c,
+              ...(data.categoryName !== undefined ? { categoryName: data.categoryName } : {}),
+              ...(data.basePrice !== undefined ? { basePrice: data.basePrice } : {}),
+            }
+          }
+          return c
+        })
+      )
+      showToast('Category updated successfully', 'success')
+    } catch (err) {
+      console.error('[POSContext] updateCategory error:', err)
+      showToast('Failed to update category', 'error')
+      throw err
+    }
+  }
+
+  const addBulkCategories = async (
+    categoryNames: Array<string | { categoryName: string; basePrice?: number }>
+  ) => {
     try {
       const res = await categoryService.createBulkCategories(categoryNames)
       if (res.added.length > 0) {
@@ -594,6 +627,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         subtotal: invoiceData.subtotal,
         taxPercent: invoiceData.taxPercent,
         taxAmount: invoiceData.taxAmount,
+        discountCode: invoiceData.discountCode,
         discountAmount: invoiceData.discountAmount,
         netTotal: invoiceData.netTotal,
         billMode: invoiceData.paymentMethod.toUpperCase().includes('UPI')
@@ -629,6 +663,20 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     )
     billingService.refundInvoice(id).catch(() => {})
     showToast(`Invoice ${id} marked as refunded`, 'warning')
+  }
+
+  const deleteInvoice = async (id: string) => {
+    const cleanId = id.startsWith('#') ? id.slice(1) : id
+    setInvoices((prev) =>
+      prev.filter((inv) => inv.id !== id && inv.id !== `#${cleanId}` && inv.id !== cleanId)
+    )
+    try {
+      await billingService.deleteInvoice(cleanId)
+      showToast(`Invoice #${cleanId} deleted successfully`, 'success')
+    } catch (err) {
+      console.error('[POSContext] Error deleting invoice:', err)
+      showToast('Failed to delete invoice', 'error')
+    }
   }
 
   const maxStorageMb = env.storage.maxStorageMb
@@ -713,6 +761,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetSettingsToDefault,
         categories,
         addCategory,
+        updateCategory,
         addBulkCategories,
         deleteCategory,
         isCategoryDrawerOpen,
@@ -733,6 +782,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addInvoice,
         getInvoiceById,
         refundInvoice,
+        deleteInvoice,
         assets,
         totalStorageBytes,
         maxStorageBytes,

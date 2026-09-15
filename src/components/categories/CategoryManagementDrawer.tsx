@@ -10,19 +10,27 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
   isOpen,
   onClose,
 }) => {
-  const { categories, addCategory, addBulkCategories, deleteCategory, showToast } = usePOS()
+  const { categories, addCategory, updateCategory, addBulkCategories, deleteCategory, showToast } =
+    usePOS()
 
   const [activeTab, setActiveTab] = useState<'single' | 'json' | 'list'>('single')
   const [singleCategoryName, setSingleCategoryName] = useState('')
+  const [singleBasePrice, setSingleBasePrice] = useState('')
   const [isSubmittingSingle, setIsSubmittingSingle] = useState(false)
+
+  // Inline Table Edit States
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
+  const [editCategoryName, setEditCategoryName] = useState('')
+  const [editBasePrice, setEditBasePrice] = useState('')
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
 
   // JSON Import States
   const [jsonText, setJsonText] = useState('')
   const [parsedPreview, setParsedPreview] = useState<{
-    validNames: string[]
+    validItems: Array<{ categoryName: string; basePrice?: number }>
     duplicateNames: string[]
     error: string | null
-  }>({ validNames: [], duplicateNames: [], error: null })
+  }>({ validItems: [], duplicateNames: [], error: null })
   const [isImportingJson, setIsImportingJson] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -40,7 +48,9 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (categoryToDelete) {
+        if (editingCategoryId) {
+          setEditingCategoryId(null)
+        } else if (categoryToDelete) {
           setCategoryToDelete(null)
         } else if (isOpen) {
           onClose()
@@ -49,12 +59,12 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose, categoryToDelete])
+  }, [isOpen, onClose, categoryToDelete, editingCategoryId])
 
   // Parse JSON input whenever text changes
   useEffect(() => {
     if (!jsonText.trim()) {
-      setParsedPreview({ validNames: [], duplicateNames: [], error: null })
+      setParsedPreview({ validItems: [], duplicateNames: [], error: null })
       return
     }
 
@@ -81,9 +91,9 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
         }
       }
 
-      let extracted: string[] = []
+      let extracted: Array<{ categoryName: string; basePrice?: number }> = []
 
-      const extractFromObject = (obj: any): string | null => {
+      const extractFromObject = (obj: any): { categoryName: string; basePrice?: number } | null => {
         if (!obj || typeof obj !== 'object') return null
         const candidateKeys = [
           'categoryName',
@@ -101,26 +111,44 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
           'category_title',
           'Category Name',
         ]
+        let foundName: string | null = null
         for (const k of candidateKeys) {
           if (typeof obj[k] === 'string' && obj[k].trim()) {
-            return obj[k].trim()
+            foundName = obj[k].trim()
+            break
           }
         }
-        for (const val of Object.values(obj)) {
-          if (typeof val === 'string' && val.trim()) {
-            return val.trim()
+        if (!foundName) {
+          for (const val of Object.values(obj)) {
+            if (typeof val === 'string' && val.trim()) {
+              foundName = val.trim()
+              break
+            }
           }
         }
-        return null
+        if (!foundName) return null
+
+        let price: number | undefined
+        if (typeof obj.basePrice === 'number' && !isNaN(obj.basePrice)) {
+          price = obj.basePrice
+        } else if (typeof obj.price === 'number' && !isNaN(obj.price)) {
+          price = obj.price
+        } else if (typeof obj.rate === 'number' && !isNaN(obj.rate)) {
+          price = obj.rate
+        } else if (typeof obj.base_price === 'number' && !isNaN(obj.base_price)) {
+          price = obj.base_price
+        }
+
+        return { categoryName: foundName, basePrice: price }
       }
 
       if (Array.isArray(parsed)) {
         for (const item of parsed) {
           if (typeof item === 'string' && item.trim()) {
-            extracted.push(item.trim())
+            extracted.push({ categoryName: item.trim() })
           } else if (typeof item === 'object' && item !== null) {
-            const name = extractFromObject(item)
-            if (name) extracted.push(name)
+            const res = extractFromObject(item)
+            if (res) extracted.push(res)
           }
         }
       } else if (typeof parsed === 'object' && parsed !== null) {
@@ -135,10 +163,10 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
         if (Array.isArray(candidateList)) {
           for (const item of candidateList) {
             if (typeof item === 'string' && item.trim()) {
-              extracted.push(item.trim())
+              extracted.push({ categoryName: item.trim() })
             } else if (typeof item === 'object' && item !== null) {
-              const name = extractFromObject(item)
-              if (name) extracted.push(name)
+              const res = extractFromObject(item)
+              if (res) extracted.push(res)
             }
           }
         } else {
@@ -150,38 +178,46 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
       }
 
       // Deduplicate within the incoming batch
-      const uniqueExtracted = Array.from(new Set(extracted))
+      const seenNames = new Set<string>()
+      const uniqueExtracted: Array<{ categoryName: string; basePrice?: number }> = []
+      for (const item of extracted) {
+        const lower = item.categoryName.toLowerCase()
+        if (!seenNames.has(lower)) {
+          seenNames.add(lower)
+          uniqueExtracted.push(item)
+        }
+      }
 
       if (uniqueExtracted.length === 0) {
         setParsedPreview({
-          validNames: [],
+          validItems: [],
           duplicateNames: [],
           error:
-            'No valid category names found in JSON. Format: ["Category1", "Category2"] or [{"categoryName": "..."}]',
+            'No valid category names found in JSON. Format: ["Category1", "Category2"] or [{"categoryName": "...", "basePrice": 150}]',
         })
         return
       }
 
       const existingSet = new Set(categories.map((c) => c.categoryName.trim().toLowerCase()))
-      const validNames: string[] = []
+      const validItems: Array<{ categoryName: string; basePrice?: number }> = []
       const duplicateNames: string[] = []
 
-      for (const name of uniqueExtracted) {
-        if (existingSet.has(name.toLowerCase())) {
-          duplicateNames.push(name)
+      for (const item of uniqueExtracted) {
+        if (existingSet.has(item.categoryName.toLowerCase())) {
+          duplicateNames.push(item.categoryName)
         } else {
-          validNames.push(name)
+          validItems.push(item)
         }
       }
 
       setParsedPreview({
-        validNames,
+        validItems,
         duplicateNames,
         error: null,
       })
     } catch (err: any) {
       setParsedPreview({
-        validNames: [],
+        validItems: [],
         duplicateNames: [],
         error: `JSON syntax error: ${err.message}`,
       })
@@ -203,14 +239,58 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
       return
     }
 
+    const parsedPrice = singleBasePrice.trim() !== '' ? parseFloat(singleBasePrice) : undefined
+    const validPrice =
+      typeof parsedPrice === 'number' && !isNaN(parsedPrice) && parsedPrice >= 0
+        ? parsedPrice
+        : undefined
+
     setIsSubmittingSingle(true)
     try {
-      await addCategory(trimmed)
+      await addCategory(trimmed, validPrice)
       setSingleCategoryName('')
+      setSingleBasePrice('')
     } catch {
       // Handled in context
     } finally {
       setIsSubmittingSingle(false)
+    }
+  }
+
+  const handleStartEdit = (cat: {
+    categoryId: string
+    categoryName: string
+    basePrice?: number
+  }) => {
+    setEditingCategoryId(cat.categoryId)
+    setEditCategoryName(cat.categoryName)
+    setEditBasePrice(cat.basePrice !== undefined && cat.basePrice > 0 ? String(cat.basePrice) : '')
+  }
+
+  const handleSaveEdit = async (catId: string) => {
+    const trimmed = editCategoryName.trim()
+    if (!trimmed) {
+      showToast('Category name cannot be empty', 'warning')
+      return
+    }
+
+    const parsedPrice = editBasePrice.trim() !== '' ? parseFloat(editBasePrice) : undefined
+    const validPrice =
+      typeof parsedPrice === 'number' && !isNaN(parsedPrice) && parsedPrice >= 0
+        ? parsedPrice
+        : undefined
+
+    setIsSavingEdit(true)
+    try {
+      await updateCategory(catId, {
+        categoryName: trimmed,
+        basePrice: validPrice,
+      })
+      setEditingCategoryId(null)
+    } catch {
+      // Handled in context
+    } finally {
+      setIsSavingEdit(false)
     }
   }
 
@@ -237,16 +317,16 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
   }
 
   const handleImportJson = async () => {
-    if (parsedPreview.validNames.length === 0) {
+    if (parsedPreview.validItems.length === 0) {
       showToast('No new categories to import', 'warning')
       return
     }
 
     setIsImportingJson(true)
     try {
-      await addBulkCategories(parsedPreview.validNames)
+      await addBulkCategories(parsedPreview.validItems)
       setJsonText('')
-      setParsedPreview({ validNames: [], duplicateNames: [], error: null })
+      setParsedPreview({ validItems: [], duplicateNames: [], error: null })
       setActiveTab('list')
     } catch {
       // Handled in context
@@ -257,10 +337,10 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
 
   const handleDownloadSampleJson = () => {
     const sample = [
-      { categoryName: 'Beverages & Drinks' },
-      { categoryName: 'Bakery & Bread' },
-      { categoryName: 'Dairy & Eggs' },
-      { categoryName: 'Organic Snacks' },
+      { categoryName: 'Beverages & Drinks', basePrice: 120 },
+      { categoryName: 'Bakery & Bread', basePrice: 65 },
+      { categoryName: 'Dairy & Eggs', basePrice: 85 },
+      { categoryName: 'Organic Snacks', basePrice: 150 },
       { categoryName: 'Personal Care & Hygiene' },
       { categoryName: 'Household Essentials' },
     ]
@@ -278,6 +358,7 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
     const exportData = categories.map((c) => ({
       categoryId: c.categoryId,
       categoryName: c.categoryName,
+      basePrice: c.basePrice,
     }))
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -397,28 +478,58 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
                 <label className="block font-label-sm text-label-sm font-semibold text-on-surface">
                   Create New Category
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={singleCategoryName}
-                    onChange={(e) => setSingleCategoryName(e.target.value)}
-                    placeholder="e.g. Beverages, Bakery, Cosmetics, Organic Groceries..."
-                    autoFocus
-                    disabled={isSubmittingSingle}
-                    className="flex-1 p-2.5 bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs"
-                  />
+                <div className="flex flex-col gap-2.5">
+                  <div>
+                    <label className="block text-[11px] text-on-surface-variant font-medium mb-1">
+                      Category Name <span className="text-error">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={singleCategoryName}
+                      onChange={(e) => setSingleCategoryName(e.target.value)}
+                      placeholder="e.g. Beverages, Bakery, Cosmetics, Bangles..."
+                      autoFocus
+                      disabled={isSubmittingSingle}
+                      className="w-full p-2.5 bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-on-surface-variant font-medium mb-1">
+                      Base Price (₹){' '}
+                      <span className="text-on-surface-variant/60 font-normal">
+                        (Optional default price during billing)
+                      </span>
+                    </label>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-2.5 font-mono text-xs text-on-surface-variant">
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={singleBasePrice}
+                        onChange={(e) => setSingleBasePrice(e.target.value)}
+                        placeholder="0.00 (Leave empty if dynamic)"
+                        disabled={isSubmittingSingle}
+                        className="w-full pl-6 pr-3 py-2 bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT font-mono-numeric-sm text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs"
+                      />
+                    </div>
+                  </div>
+
                   <button
                     type="submit"
                     disabled={isSubmittingSingle || !singleCategoryName.trim()}
-                    className="px-4 bg-primary text-on-primary hover:bg-inverse-surface disabled:opacity-50 font-label-md text-label-md font-semibold rounded-DEFAULT transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+                    className="w-full py-2.5 bg-primary text-on-primary hover:bg-inverse-surface disabled:opacity-50 font-label-md text-label-md font-semibold rounded-DEFAULT transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer mt-1"
                   >
-                    <span className="material-symbols-outlined text-[18px]">add</span>
-                    <span>{isSubmittingSingle ? 'Adding...' : 'Add'}</span>
+                    <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                    <span>{isSubmittingSingle ? 'Adding Category...' : 'Add Category'}</span>
                   </button>
                 </div>
                 <p className="text-[11px] text-on-surface-variant leading-relaxed">
-                  Press Enter to immediately save. The category will instantly be accessible in POS
-                  billing and the product catalogue.
+                  The base price automatically pre-fills the item price when selected in billing.
+                  Cashiers can still adjust it per customer without affecting the saved base price.
                 </p>
               </form>
 
@@ -511,7 +622,7 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
                   rows={6}
                   value={jsonText}
                   onChange={(e) => setJsonText(e.target.value)}
-                  placeholder={`[\n  {\n    "categoryName": "Beverages & Drinks"\n  },\n  {\n    "categoryName": "Bakery & Bread"\n  }\n]`}
+                  placeholder={`[\n  {\n    "categoryName": "Beverages & Drinks",\n    "basePrice": 120\n  },\n  {\n    "categoryName": "Bakery & Bread",\n    "basePrice": 60\n  }\n]`}
                   className="w-full p-2.5 font-mono text-xs bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs leading-relaxed"
                 />
               </div>
@@ -524,7 +635,7 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
                       <span className="material-symbols-outlined text-[18px] shrink-0">error</span>
                       <span className="leading-tight">{parsedPreview.error}</span>
                     </div>
-                  ) : parsedPreview.validNames.length > 0 ? (
+                  ) : parsedPreview.validItems.length > 0 ? (
                     <div className="flex flex-col gap-1.5">
                       <button
                         type="button"
@@ -536,8 +647,8 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
                         <span>
                           {isImportingJson
                             ? 'Importing...'
-                            : `Import ${parsedPreview.validNames.length} ${
-                                parsedPreview.validNames.length === 1 ? 'Category' : 'Categories'
+                            : `Import ${parsedPreview.validItems.length} ${
+                                parsedPreview.validItems.length === 1 ? 'Category' : 'Categories'
                               }`}
                         </span>
                       </button>
@@ -614,17 +725,18 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-surface-container-low border-b border-outline-variant/30 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
-                      <th className="py-2 px-2.5 w-10 text-center">S.No.</th>
-                      <th className="py-2 px-2.5 w-24">ID</th>
-                      <th className="py-2 px-3">Category Name</th>
-                      <th className="py-2 px-2.5 text-right w-16">Action</th>
+                      <th className="py-2 px-2 text-center w-8">#</th>
+                      <th className="py-2 px-2 w-20">ID</th>
+                      <th className="py-2 px-2.5">Category Name</th>
+                      <th className="py-2 px-2.5 text-right w-24">Base Price</th>
+                      <th className="py-2 px-2 text-right w-20">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-outline-variant/20">
                     {filteredCategories.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={4}
+                          colSpan={5}
                           className="py-6 text-center text-on-surface-variant text-xs"
                         >
                           {searchQuery
@@ -633,34 +745,112 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
                         </td>
                       </tr>
                     ) : (
-                      filteredCategories.map((cat, idx) => (
-                        <tr
-                          key={cat.categoryId}
-                          className="hover:bg-surface-container-low transition-colors"
-                        >
-                          <td className="py-2 px-2.5 text-center text-on-surface-variant font-mono text-[11px]">
-                            {idx + 1}
-                          </td>
-                          <td className="py-2 px-2.5 font-mono text-[10px] text-on-surface-variant">
-                            {cat.categoryId}
-                          </td>
-                          <td className="py-2 px-3 font-semibold text-on-surface">
-                            {cat.categoryName}
-                          </td>
-                          <td className="py-2 px-2.5 text-right">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setCategoryToDelete({ id: cat.categoryId, name: cat.categoryName })
-                              }
-                              className="p-1 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded transition-colors cursor-pointer"
-                              title="Delete category"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">delete</span>
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                      filteredCategories.map((cat, idx) => {
+                        const isEditing = editingCategoryId === cat.categoryId
+                        return (
+                          <tr
+                            key={cat.categoryId}
+                            className={`hover:bg-surface-container-low transition-colors ${
+                              isEditing ? 'bg-primary/5' : ''
+                            }`}
+                          >
+                            <td className="py-2 px-2 text-center text-on-surface-variant font-mono text-[11px]">
+                              {idx + 1}
+                            </td>
+                            <td className="py-2 px-2 font-mono text-[10px] text-on-surface-variant">
+                              {cat.categoryId}
+                            </td>
+                            <td className="py-2 px-2.5 font-semibold text-on-surface">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={editCategoryName}
+                                  onChange={(e) => setEditCategoryName(e.target.value)}
+                                  className="w-full px-2 py-1 bg-surface-container-lowest border border-primary rounded text-xs text-on-surface focus:outline-none"
+                                  autoFocus
+                                />
+                              ) : (
+                                cat.categoryName
+                              )}
+                            </td>
+                            <td className="py-2 px-2.5 text-right font-mono text-[11px]">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  placeholder="0.00"
+                                  value={editBasePrice}
+                                  onChange={(e) => setEditBasePrice(e.target.value)}
+                                  className="w-20 px-1.5 py-1 bg-surface-container-lowest border border-primary rounded text-xs text-right text-on-surface focus:outline-none font-mono"
+                                />
+                              ) : typeof cat.basePrice === 'number' && cat.basePrice > 0 ? (
+                                <span className="font-semibold text-secondary">
+                                  ₹{cat.basePrice.toFixed(2)}
+                                </span>
+                              ) : (
+                                <span className="text-on-surface-variant/40 italic">—</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-2 text-right">
+                              {isEditing ? (
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveEdit(cat.categoryId)}
+                                    disabled={isSavingEdit}
+                                    className="p-1 text-secondary hover:bg-secondary/15 rounded cursor-pointer transition-colors"
+                                    title="Save changes"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">
+                                      check
+                                    </span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingCategoryId(null)}
+                                    disabled={isSavingEdit}
+                                    className="p-1 text-on-surface-variant hover:bg-surface-container rounded cursor-pointer transition-colors"
+                                    title="Cancel"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">
+                                      close
+                                    </span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEdit(cat)}
+                                    className="p-1 text-on-surface-variant hover:text-primary hover:bg-surface-container rounded transition-colors cursor-pointer"
+                                    title="Edit category & base price"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">
+                                      edit
+                                    </span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setCategoryToDelete({
+                                        id: cat.categoryId,
+                                        name: cat.categoryName,
+                                      })
+                                    }
+                                    className="p-1 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded transition-colors cursor-pointer"
+                                    title="Delete category"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">
+                                      delete
+                                    </span>
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })
                     )}
                   </tbody>
                 </table>

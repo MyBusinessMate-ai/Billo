@@ -35,10 +35,17 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
   const { settings, invoices, customers, showToast, nextInvoiceSequence } = usePOS()
 
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'upi' | 'card'>('cash')
-  const [discountCode] = useState<string>('')
-  const [discountAmount] = useState<number>(0)
+  const [discountType, setDiscountType] = useState<'percent' | 'flat'>('percent')
+  const [discountValue, setDiscountValue] = useState<string>('')
   const [cashTendered] = useState<number>(2000)
   const [printReceipt, setPrintReceipt] = useState<boolean>(true)
+
+  // Reset discount input if cart is empty
+  useEffect(() => {
+    if (items.length === 0) {
+      setDiscountValue('')
+    }
+  }, [items.length])
 
   // Customer Past Billings Analysis
   const cleanCustomerPhone = customer?.phone ? customer.phone.replace(/\D/g, '') : ''
@@ -96,8 +103,32 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
   const taxPercent = defaultTaxPercent
   const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0)
 
+  // Compute Discount Amount
+  const parsedDiscountVal = parseFloat(discountValue) || 0
+  let discountAmount = 0
+  if (parsedDiscountVal > 0 && grossSubtotal > 0) {
+    if (discountType === 'percent') {
+      const cappedPercent = Math.min(100, Math.max(0, parsedDiscountVal))
+      discountAmount = Math.round(((grossSubtotal * cappedPercent) / 100) * 100) / 100
+    } else {
+      // Direct amount in INR
+      discountAmount = Math.min(grossSubtotal + taxAmount, Math.max(0, parsedDiscountVal))
+    }
+  }
+
+  const discountCode =
+    discountAmount > 0
+      ? discountType === 'percent'
+        ? `${parsedDiscountVal}% OFF`
+        : `₹${parsedDiscountVal} FLAT`
+      : undefined
+
   const rawNetPayable = Math.max(0, grossSubtotal + taxAmount - discountAmount)
   const netPayable = Math.round(rawNetPayable)
+
+  const handleClearDiscount = () => {
+    setDiscountValue('')
+  }
 
   // Hotkeys for settlement
   useEffect(() => {
@@ -295,38 +326,34 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
           </span>
         </div>
 
-        {/* {discountAmount > 0 ? (
+        {discountAmount > 0 && (
           <div className="flex items-center justify-between text-secondary">
             <div className="flex items-center gap-1.5">
-              <span className="font-label-md text-label-md">Coupon ({discountCode})</span>
+              <span className="font-label-md text-label-md font-medium">
+                Discount ({discountType === 'percent' ? `${parsedDiscountVal}%` : 'Direct ₹'})
+              </span>
               <button
                 type="button"
-                id="remove-coupon"
-                onClick={() => setDiscountAmount(0)}
+                id="remove-discount-btn"
+                onClick={handleClearDiscount}
                 className="text-on-surface-variant hover:text-error leading-none cursor-pointer"
+                title="Remove discount"
               >
                 <span className="material-symbols-outlined text-[14px]">cancel</span>
               </button>
             </div>
-            <span className="font-mono-numeric-md text-mono-numeric-md font-semibold" id="discount-val">
-              -₹{discountAmount.toFixed(2)}
+            <span
+              className="font-mono-numeric-md text-mono-numeric-md font-semibold text-secondary"
+              id="discount-val"
+            >
+              -₹
+              {discountAmount.toLocaleString('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </span>
           </div>
-        ) : (
-          <div className="flex items-center justify-between text-on-surface-variant">
-            <button
-              type="button"
-              onClick={() => {
-                setDiscountCode('REGULAR50')
-                setDiscountAmount(50)
-              }}
-              className="font-label-sm text-secondary hover:underline cursor-pointer"
-            >
-              + Apply Coupon (REGULAR50)
-            </button>
-            <span className="font-mono-numeric-md text-mono-numeric-md">₹0.00</span>
-          </div>
-        )} */}
+        )}
 
         <div className="flex items-center justify-between text-on-surface-variant pt-1">
           <span className="font-label-sm text-label-sm uppercase">Total Units</span>
@@ -339,13 +366,13 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
         </div>
 
         {/* Net Payable Banner */}
-        <div className="bg-surface-container-lowest p-pad-sm rounded-DEFAULT flex items-center justify-between mt-2">
+        <div className="bg-surface-container-lowest p-pad-sm rounded-DEFAULT flex items-center justify-between mt-2 border border-outline-variant/30 shadow-2xs">
           <div>
-            <span className="font-label-sm text-label-sm uppercase text-on-surface-variant tracking-wider block">
+            <span className="font-label-sm text-label-sm uppercase text-on-surface-variant tracking-wider block font-semibold">
               Net Payable
             </span>
-            <span className="font-mono-numeric-sm text-mono-numeric-sm text-secondary font-medium">
-              Rounding Adjusted
+            <span className="font-mono-numeric-sm text-[11px] text-secondary font-medium">
+              {discountAmount > 0 ? 'Discount & Rounding Applied' : 'Rounding Adjusted'}
             </span>
           </div>
           <span
@@ -358,6 +385,121 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
               maximumFractionDigits: 2,
             })}
           </span>
+        </div>
+      </div>
+
+      {/* Discount Configuration Option (Placed after Net Payable) */}
+      <div className="bg-surface-container-low p-pad-sm rounded-DEFAULT space-y-2 border border-outline-variant/30">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[16px] text-secondary">
+              local_offer
+            </span>
+            <label className="font-label-sm text-label-sm font-semibold text-on-surface uppercase tracking-wider">
+              Discount / Concession
+            </label>
+          </div>
+          {discountAmount > 0 && (
+            <button
+              type="button"
+              onClick={handleClearDiscount}
+              className="text-[11px] text-error hover:underline font-label-sm cursor-pointer"
+            >
+              Clear Discount
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Discount Type Toggle: % vs ₹ */}
+          <div className="flex bg-surface-container rounded-DEFAULT p-0.5 shrink-0 border border-outline-variant/30">
+            <button
+              type="button"
+              onClick={() => setDiscountType('percent')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-DEFAULT transition-all cursor-pointer ${
+                discountType === 'percent'
+                  ? 'bg-primary text-on-primary shadow-xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+              id="discount-type-percent"
+            >
+              % Percent
+            </button>
+            <button
+              type="button"
+              onClick={() => setDiscountType('flat')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-DEFAULT transition-all cursor-pointer ${
+                discountType === 'flat'
+                  ? 'bg-primary text-on-primary shadow-xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+              id="discount-type-flat"
+            >
+              ₹ Direct Amount
+            </button>
+          </div>
+
+          {/* Discount Input Field */}
+          <div className="flex-1 bg-surface-container-lowest px-3 py-1.5 rounded-DEFAULT flex items-center border border-outline-variant/40 focus-within:border-primary transition-colors">
+            <span className="font-mono-numeric-md text-mono-numeric-md text-on-surface-variant mr-1.5 font-bold">
+              {discountType === 'percent' ? '%' : '₹'}
+            </span>
+            <input
+              id="discount-input"
+              type="number"
+              min="0"
+              max={discountType === 'percent' ? 100 : undefined}
+              step={discountType === 'percent' ? '1' : '10'}
+              placeholder={discountType === 'percent' ? 'e.g. 10' : 'e.g. 50'}
+              value={discountValue}
+              onChange={(e) => setDiscountValue(e.target.value)}
+              className="w-full bg-transparent font-mono-numeric-md text-mono-numeric-md font-semibold text-on-surface focus:outline-none"
+            />
+            {discountValue && (
+              <button
+                type="button"
+                onClick={handleClearDiscount}
+                className="text-on-surface-variant hover:text-error cursor-pointer ml-1"
+                title="Clear"
+              >
+                <span className="material-symbols-outlined text-[15px]">close</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Quick Discount Presets */}
+        <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+          <span className="text-[11px] text-on-surface-variant font-label-sm">Quick Pick:</span>
+          {discountType === 'percent'
+            ? [5, 10, 15, 20, 25].map((pct) => (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => setDiscountValue(pct.toString())}
+                  className={`px-2 py-0.5 rounded-DEFAULT text-[11px] font-mono-numeric-sm transition-colors cursor-pointer ${
+                    discountValue === pct.toString()
+                      ? 'bg-secondary text-on-secondary font-semibold shadow-2xs'
+                      : 'bg-surface-container hover:bg-surface-container-high text-on-surface'
+                  }`}
+                >
+                  {pct}%
+                </button>
+              ))
+            : [50, 100, 200, 500].map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => setDiscountValue(amt.toString())}
+                  className={`px-2 py-0.5 rounded-DEFAULT text-[11px] font-mono-numeric-sm transition-colors cursor-pointer ${
+                    discountValue === amt.toString()
+                      ? 'bg-secondary text-on-secondary font-semibold shadow-2xs'
+                      : 'bg-surface-container hover:bg-surface-container-high text-on-surface'
+                  }`}
+                >
+                  ₹{amt}
+                </button>
+              ))}
         </div>
       </div>
 

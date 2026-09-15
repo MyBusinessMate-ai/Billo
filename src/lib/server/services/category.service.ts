@@ -24,7 +24,7 @@ export const categoryService = {
     return fetchCategoryById(categoryId)
   },
 
-  async createCategory(categoryName: string): Promise<Category> {
+  async createCategory(categoryName: string, basePrice?: number): Promise<Category> {
     const trimmed = categoryName.trim()
     if (!trimmed) {
       throw new Error('Category name is required')
@@ -46,6 +46,7 @@ export const categoryService = {
     const categoryDoc: Category = {
       categoryId,
       categoryName: trimmed,
+      ...(typeof basePrice === 'number' && !isNaN(basePrice) ? { basePrice } : {}),
       createdAt: { seconds: nowSeconds, nanoseconds: 0 },
       updatedAt: { seconds: nowSeconds, nanoseconds: 0 },
     }
@@ -57,9 +58,20 @@ export const categoryService = {
     return categoryDoc
   },
 
-  async updateCategory(categoryId: string, categoryName: string): Promise<void> {
+  async updateCategory(
+    categoryId: string,
+    data: { categoryName?: string; basePrice?: number }
+  ): Promise<void> {
     if (db) {
-      await updateCategoryDoc(categoryId, { categoryName: categoryName.trim() })
+      const payload: Partial<Category> = {}
+      if (data.categoryName !== undefined) {
+        payload.categoryName = data.categoryName.trim()
+      }
+      if (data.basePrice !== undefined) {
+        payload.basePrice =
+          typeof data.basePrice === 'number' && !isNaN(data.basePrice) ? data.basePrice : undefined
+      }
+      await updateCategoryDoc(categoryId, payload)
     }
   },
 
@@ -70,7 +82,7 @@ export const categoryService = {
   },
 
   async createBulkCategories(
-    categoryNames: string[]
+    items: Array<string | { categoryName: string; basePrice?: number }>
   ): Promise<{ added: Category[]; skipped: string[] }> {
     const existing = await fetchCategories().catch(() => [])
     const existingNames = new Set(existing.map((c) => c.categoryName.trim().toLowerCase()))
@@ -78,19 +90,20 @@ export const categoryService = {
     const added: Category[] = []
     const skipped: string[] = []
 
-    for (const rawName of categoryNames) {
-      const trimmed = typeof rawName === 'string' ? rawName.trim() : ''
-      if (!trimmed) continue
-      if (existingNames.has(trimmed.toLowerCase())) {
-        skipped.push(trimmed)
+    for (const item of items) {
+      const name = typeof item === 'string' ? item.trim() : (item.categoryName || '').trim()
+      const price = typeof item === 'object' && item !== null ? item.basePrice : undefined
+      if (!name) continue
+      if (existingNames.has(name.toLowerCase())) {
+        skipped.push(name)
         continue
       }
       try {
-        const cat = await this.createCategory(trimmed)
+        const cat = await this.createCategory(name, price)
         added.push(cat)
-        existingNames.add(trimmed.toLowerCase())
+        existingNames.add(name.toLowerCase())
       } catch (err) {
-        console.warn('[CategoryService] Bulk item failed:', trimmed, err)
+        console.warn('[CategoryService] Bulk item failed:', name, err)
       }
     }
     return { added, skipped }
