@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import type { BillingInvoice } from '../../types/pos'
 import { usePOS } from '../../context/POSContext'
 import { generateUPIUrl, formatINR } from '../../utils/formatters'
+import { authService } from '../../lib/server/services/auth.service'
 
 interface InvoiceDetailsDrawerProps {
   invoice: BillingInvoice | null
@@ -19,15 +20,21 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
 }) => {
   const { invoices, showToast, settings, deleteInvoice } = usePOS()
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
+  const [accountPassword, setAccountPassword] = useState('')
+  const [showAccountPassword, setShowAccountPassword] = useState(false)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // Reset confirmation state whenever drawer opens/closes or invoice changes
+  // Reset confirmation and password state whenever drawer opens/closes or invoice changes
   useEffect(() => {
-    if (!isOpen) {
+    if (!isOpen || !isConfirmingDelete) {
       setIsConfirmingDelete(false)
       setIsDeleting(false)
+      setAccountPassword('')
+      setPasswordError(null)
+      setShowAccountPassword(false)
     }
-  }, [isOpen, invoice?.id])
+  }, [isOpen, isConfirmingDelete, invoice?.id])
 
   // Handle keyboard escape
   useEffect(() => {
@@ -54,15 +61,36 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
     showToast(`Copied ${displayInvoiceId} to clipboard`, 'info')
   }
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
     if (!invoice) return
+
+    const trimmedPassword = accountPassword.trim()
+    if (!trimmedPassword) {
+      setPasswordError('Please enter your account password to authorize deletion.')
+      return
+    }
+
     setIsDeleting(true)
+    setPasswordError(null)
+
     try {
+      const isValid = await authService.verifyCurrentPassword(trimmedPassword)
+      if (!isValid) {
+        setPasswordError('Incorrect account password. Deletion unauthorized.')
+        showToast('Incorrect account password', 'error')
+        setIsDeleting(false)
+        return
+      }
+
       await deleteInvoice(invoice.id)
       setIsConfirmingDelete(false)
+      setAccountPassword('')
       onClose()
-    } catch {
-      // Handled in context
+      showToast(`Bill ${displayInvoiceId} deleted permanently`, 'success')
+    } catch (err: any) {
+      setPasswordError(err.message || 'Failed to delete bill. Please try again.')
+      showToast(err.message || 'Failed to delete bill', 'error')
     } finally {
       setIsDeleting(false)
     }
@@ -374,7 +402,7 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
         </div>
       </aside>
 
-      {/* Confirmation Modal Panel for Bill Deletion */}
+      {/* Confirmation Modal Panel for Bill Deletion with Password Authorization */}
       {isConfirmingDelete && (
         <div
           className="fixed inset-0 z-60 bg-inverse-surface/60 backdrop-blur-2xs flex items-center justify-center p-4 animate-fade-in"
@@ -384,7 +412,10 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
             }
           }}
         >
-          <div className="bg-surface-container-lowest border border-outline-variant/40 rounded-DEFAULT shadow-2xl p-pad-lg max-w-sm w-full flex flex-col gap-pad-md animate-scale-in">
+          <form
+            onSubmit={handleConfirmDelete}
+            className="bg-surface-container-lowest border border-outline-variant/40 rounded-DEFAULT shadow-2xl p-pad-lg max-w-md w-full flex flex-col gap-pad-md animate-scale-in"
+          >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-error-container/40 text-error flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-[22px]">delete_forever</span>
@@ -394,17 +425,59 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
                   Delete Bill?
                 </h3>
                 <p className="font-mono-numeric-sm text-[12px] text-on-surface-variant truncate">
-                  {displayInvoiceId} • ₹{invoice.netTotal.toLocaleString('en-IN')}.00
+                  {displayInvoiceId} • ₹{invoice.netTotal.toLocaleString('en-IN')}.00 •{' '}
+                  {invoice.customer.name}
                 </p>
               </div>
             </div>
 
             <p className="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-              Are you sure you want to permanently delete bill{' '}
-              <strong className="text-on-surface font-semibold">{displayInvoiceId}</strong> for{' '}
-              <strong className="text-on-surface font-semibold">{invoice.customer.name}</strong>?
-              This record will be permanently removed from billing history.
+              Permanently deleting this record will remove it from transaction history and update
+              reporting. Please enter your <strong>account password</strong> to authorize deletion:
             </p>
+
+            {/* Password Authorization Field */}
+            <div className="flex flex-col gap-1.5">
+              <label className="block text-xs font-semibold text-on-surface">
+                Account Password <span className="text-error">*</span>
+              </label>
+              <div className="relative flex items-center">
+                <span className="material-symbols-outlined absolute left-2.5 text-on-surface-variant text-[18px] pointer-events-none select-none">
+                  lock
+                </span>
+                <input
+                  type={showAccountPassword ? 'text' : 'password'}
+                  id="delete-bill-account-password"
+                  value={accountPassword}
+                  onChange={(e) => {
+                    setAccountPassword(e.target.value)
+                    if (passwordError) setPasswordError(null)
+                  }}
+                  placeholder="Enter account password to authorize"
+                  autoFocus
+                  disabled={isDeleting}
+                  className="w-full pl-8.5 pr-9 py-2.5 bg-surface-container-low border border-outline-variant/60 rounded-DEFAULT text-xs text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-error focus:ring-1 focus:ring-error shadow-2xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAccountPassword(!showAccountPassword)}
+                  className="absolute right-2 text-on-surface-variant hover:text-on-surface p-1 rounded transition-colors cursor-pointer"
+                  title={showAccountPassword ? 'Hide password' : 'Show password'}
+                  tabIndex={-1}
+                >
+                  <span className="material-symbols-outlined text-[16px]">
+                    {showAccountPassword ? 'visibility_off' : 'visibility'}
+                  </span>
+                </button>
+              </div>
+
+              {passwordError && (
+                <div className="p-2 bg-error-container/20 border border-error/30 rounded-DEFAULT flex items-center gap-1.5 text-error text-[11px] mt-0.5">
+                  <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
+                  <span>{passwordError}</span>
+                </div>
+              )}
+            </div>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-outline-variant/20">
               <button
@@ -416,16 +489,15 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
                 Cancel
               </button>
               <button
-                type="button"
-                onClick={handleConfirmDelete}
-                disabled={isDeleting}
+                type="submit"
+                disabled={isDeleting || !accountPassword.trim()}
                 className="px-4 py-1.5 bg-error text-on-error hover:bg-error/90 disabled:opacity-50 rounded-DEFAULT font-semibold text-xs transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[16px]">delete</span>
-                <span>{isDeleting ? 'Deleting...' : 'Confirm Delete'}</span>
+                <span className="material-symbols-outlined text-[16px]">delete_forever</span>
+                <span>{isDeleting ? 'Verifying & Deleting...' : 'Authorize & Delete'}</span>
               </button>
             </div>
-          </div>
+          </form>
         </div>
       )}
     </>
