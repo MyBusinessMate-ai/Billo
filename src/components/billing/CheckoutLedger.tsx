@@ -22,6 +22,7 @@ interface CheckoutLedgerProps {
     discountCode?: string
     discountAmount: number
     printReceipt: boolean
+    internalNote?: string
   }) => void
 }
 
@@ -37,13 +38,17 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'upi' | 'card'>('cash')
   const [discountType, setDiscountType] = useState<'percent' | 'flat'>('percent')
   const [discountValue, setDiscountValue] = useState<string>('')
+  const [showNote, setShowNote] = useState<boolean>(false)
+  const [internalNote, setInternalNote] = useState<string>('')
   const [cashTendered] = useState<number>(2000)
   const [printReceipt, setPrintReceipt] = useState<boolean>(true)
 
-  // Reset discount input if cart is empty
+  // Reset discount & note inputs if cart is empty
   useEffect(() => {
     if (items.length === 0) {
       setDiscountValue('')
+      setShowNote(false)
+      setInternalNote('')
     }
   }, [items.length])
 
@@ -167,6 +172,7 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
       discountCode: discountAmount > 0 ? discountCode : undefined,
       discountAmount,
       printReceipt,
+      internalNote: showNote && internalNote.trim() ? internalNote.trim() : undefined,
     })
   }
 
@@ -501,6 +507,58 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
                 </button>
               ))}
         </div>
+      </div>
+
+      {/* Internal Staff Note Toggle Checkbox & Field (Optional) */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label className="inline-flex items-center gap-2 cursor-pointer select-none group">
+            <input
+              type="checkbox"
+              id="toggle-internal-note"
+              checked={showNote}
+              onChange={(e) => {
+                setShowNote(e.target.checked)
+                if (!e.target.checked) {
+                  setInternalNote('')
+                }
+              }}
+              className="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary/40 cursor-pointer accent-primary"
+            />
+            <span className="font-label-sm text-label-sm uppercase tracking-wider text-on-surface flex items-center gap-1.5 font-medium group-hover:text-primary transition-colors">
+              <span className="material-symbols-outlined text-[16px] text-on-surface-variant group-hover:text-primary">
+                note_alt
+              </span>
+              <span>Add Note</span>
+              <span className="text-[10px] text-on-surface-variant/60 font-normal lowercase">
+                (staff only)
+              </span>
+            </span>
+          </label>
+          {showNote && internalNote && (
+            <button
+              type="button"
+              onClick={() => setInternalNote('')}
+              className="text-[11px] text-on-surface-variant hover:text-error transition-colors cursor-pointer"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {showNote && (
+          <div className="animate-fade-in">
+            <input
+              type="text"
+              id="internal-staff-note"
+              value={internalNote}
+              onChange={(e) => setInternalNote(e.target.value)}
+              placeholder="e.g. Paid half in cash & half in UPI / Split remarks..."
+              autoFocus
+              className="w-full px-3 py-2 bg-surface-container-low border border-outline-variant/60 rounded-DEFAULT text-xs text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs transition-colors"
+            />
+          </div>
+        )}
       </div>
 
       {/* Settlement Channel */}

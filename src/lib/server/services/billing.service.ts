@@ -57,6 +57,7 @@ export function mapFirestoreBillingToUI(b: FirestoreBilling): UIBillingInvoice {
     netTotal: b.total,
     paymentMethod: b.billMode === 'upi' ? 'UPI / QR' : b.billMode === 'card' ? 'Card' : 'Cash',
     status: 'completed' as InvoiceStatus,
+    internalNote: b.internalNote,
     timestamp: formatDateTime(b.createdAt),
     date: formatDate(b.createdAt),
   }
@@ -99,6 +100,7 @@ export const billingService = {
     discountAmount: number
     netTotal: number
     billMode: 'cash' | 'upi' | 'card'
+    internalNote?: string
   }): Promise<{ billingId: string }> {
     const year = new Date().getFullYear()
     let generatedBillingId = `INV-${year}-${Math.floor(100000 + Math.random() * 900000)}`
@@ -164,6 +166,7 @@ export const billingService = {
           discountAmount: invoiceData.discountAmount,
           total: invoiceData.netTotal,
           billMode: invoiceData.billMode,
+          ...(invoiceData.internalNote ? { internalNote: invoiceData.internalNote } : {}),
           createdAt: { seconds: nowSeconds, nanoseconds: 0 },
           updatedAt: { seconds: nowSeconds, nanoseconds: 0 },
         }

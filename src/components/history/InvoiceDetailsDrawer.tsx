@@ -192,6 +192,23 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
             </div>
           </div>
 
+          {/* Internal Staff Note (Staff Only) */}
+          {invoice.internalNote && (
+            <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-DEFAULT flex items-start gap-2.5 shadow-2xs">
+              <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 text-[20px] shrink-0 mt-0.5">
+                sticky_note_2
+              </span>
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="font-label-sm text-[10px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                  Internal Staff Note (Not printed on bill)
+                </span>
+                <p className="text-body-sm text-on-surface font-medium leading-relaxed whitespace-pre-wrap">
+                  {invoice.internalNote}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Timestamp Metadata */}
           <div className="grid grid-cols-2 gap-2 p-2.5 bg-surface-container rounded-DEFAULT">
             <div className="flex flex-col">

@@ -13,7 +13,7 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
   const { categories, addCategory, updateCategory, addBulkCategories, deleteCategory, showToast } =
     usePOS()
 
-  const [activeTab, setActiveTab] = useState<'single' | 'json' | 'list'>('single')
+  const [activeTab, setActiveTab] = useState<'single' | 'csv' | 'list'>('single')
   const [singleCategoryName, setSingleCategoryName] = useState('')
   const [singleBasePrice, setSingleBasePrice] = useState('')
   const [isSubmittingSingle, setIsSubmittingSingle] = useState(false)
@@ -24,14 +24,14 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
   const [editBasePrice, setEditBasePrice] = useState('')
   const [isSavingEdit, setIsSavingEdit] = useState(false)
 
-  // JSON Import States
-  const [jsonText, setJsonText] = useState('')
+  // CSV Import States
+  const [csvText, setCsvText] = useState('')
   const [parsedPreview, setParsedPreview] = useState<{
     validItems: Array<{ categoryName: string; basePrice?: number }>
     duplicateNames: string[]
     error: string | null
   }>({ validItems: [], duplicateNames: [], error: null })
-  const [isImportingJson, setIsImportingJson] = useState(false)
+  const [isImportingCsv, setIsImportingCsv] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   // Search & Filter
@@ -61,120 +61,130 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose, categoryToDelete, editingCategoryId])
 
-  // Parse JSON input whenever text changes
+  // Parse CSV input whenever text changes
   useEffect(() => {
-    if (!jsonText.trim()) {
+    if (!csvText.trim()) {
       setParsedPreview({ validItems: [], duplicateNames: [], error: null })
       return
     }
 
     try {
-      let parsed: any
-      try {
-        parsed = JSON.parse(jsonText)
-      } catch (jsonErr: any) {
-        // Attempt fallback for newline or comma-separated plain text
-        const lines = jsonText
-          .split(/[\n,]+/)
-          .map((l) =>
-            l
-              .trim()
-              .replace(/^["'\[\]{}]+|["'\[\]{}]+$/g, '')
-              .trim()
-          )
-          .filter((l) => l.length > 0 && !l.startsWith('//') && !l.startsWith('#'))
+      // Split into lines
+      const rawLines = csvText
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0 && !l.startsWith('#') && !l.startsWith('//'))
 
-        if (lines.length > 0 && !jsonText.includes('{') && !jsonText.includes(':')) {
-          parsed = lines
-        } else {
-          throw jsonErr
-        }
+      if (rawLines.length === 0) {
+        setParsedPreview({ validItems: [], duplicateNames: [], error: 'No content found in CSV.' })
+        return
       }
 
-      let extracted: Array<{ categoryName: string; basePrice?: number }> = []
+      // Helper to parse individual CSV line handling quotes and delimiters (comma, semicolon, tab)
+      const parseCSVLine = (line: string): string[] => {
+        const delimiter = line.includes('\t')
+          ? '\t'
+          : line.includes(';') && !line.includes(',')
+            ? ';'
+            : ','
+        const cells: string[] = []
+        let cur = ''
+        let inQuotes = false
 
-      const extractFromObject = (obj: any): { categoryName: string; basePrice?: number } | null => {
-        if (!obj || typeof obj !== 'object') return null
-        const candidateKeys = [
-          'categoryName',
-          'category_name',
-          'CategoryName',
-          'category',
-          'Category',
-          'name',
-          'Name',
-          'title',
-          'Title',
-          'label',
-          'Label',
-          'categoryTitle',
-          'category_title',
-          'Category Name',
-        ]
-        let foundName: string | null = null
-        for (const k of candidateKeys) {
-          if (typeof obj[k] === 'string' && obj[k].trim()) {
-            foundName = obj[k].trim()
-            break
-          }
-        }
-        if (!foundName) {
-          for (const val of Object.values(obj)) {
-            if (typeof val === 'string' && val.trim()) {
-              foundName = val.trim()
-              break
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i]
+          if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              cur += '"'
+              i++ // skip escaped quote
+            } else {
+              inQuotes = !inQuotes
             }
+          } else if (char === delimiter && !inQuotes) {
+            cells.push(cur.trim())
+            cur = ''
+          } else {
+            cur += char
           }
         }
-        if (!foundName) return null
-
-        let price: number | undefined
-        if (typeof obj.basePrice === 'number' && !isNaN(obj.basePrice)) {
-          price = obj.basePrice
-        } else if (typeof obj.price === 'number' && !isNaN(obj.price)) {
-          price = obj.price
-        } else if (typeof obj.rate === 'number' && !isNaN(obj.rate)) {
-          price = obj.rate
-        } else if (typeof obj.base_price === 'number' && !isNaN(obj.base_price)) {
-          price = obj.base_price
-        }
-
-        return { categoryName: foundName, basePrice: price }
+        cells.push(cur.trim())
+        return cells.map((c) => c.replace(/^["']+|["']+$/g, '').trim())
       }
 
-      if (Array.isArray(parsed)) {
-        for (const item of parsed) {
-          if (typeof item === 'string' && item.trim()) {
-            extracted.push({ categoryName: item.trim() })
-          } else if (typeof item === 'object' && item !== null) {
-            const res = extractFromObject(item)
-            if (res) extracted.push(res)
-          }
-        }
-      } else if (typeof parsed === 'object' && parsed !== null) {
-        const candidateList =
-          parsed.categories ||
-          parsed.items ||
-          parsed.data ||
-          parsed.categoryList ||
-          parsed.list ||
-          parsed.Categories ||
-          parsed.Items
-        if (Array.isArray(candidateList)) {
-          for (const item of candidateList) {
-            if (typeof item === 'string' && item.trim()) {
-              extracted.push({ categoryName: item.trim() })
-            } else if (typeof item === 'object' && item !== null) {
-              const res = extractFromObject(item)
-              if (res) extracted.push(res)
+      const rows = rawLines
+        .map(parseCSVLine)
+        .filter((r) => r.length > 0 && r.some((c) => c.length > 0))
+
+      if (rows.length === 0) {
+        setParsedPreview({
+          validItems: [],
+          duplicateNames: [],
+          error: 'No valid rows found in CSV.',
+        })
+        return
+      }
+
+      // Check if first row is a header
+      const firstRow = rows[0]
+      const isHeaderRow = firstRow.some((col) => {
+        const lower = col.toLowerCase()
+        return (
+          lower.includes('category') ||
+          lower.includes('name') ||
+          lower.includes('item') ||
+          lower.includes('title') ||
+          lower.includes('price') ||
+          lower.includes('rate')
+        )
+      })
+
+      let nameColIdx = 0
+      let priceColIdx = 1
+
+      if (isHeaderRow) {
+        firstRow.forEach((col, idx) => {
+          const lower = col.toLowerCase()
+          if (
+            lower.includes('category_name') ||
+            lower.includes('categoryname') ||
+            lower.includes('category name') ||
+            lower.includes('category') ||
+            lower.includes('name') ||
+            lower.includes('title')
+          ) {
+            if (lower !== 'category id' && lower !== 'category_id' && lower !== 'cat_id') {
+              nameColIdx = idx
             }
           }
-        } else {
-          const single = extractFromObject(parsed)
-          if (single) {
-            extracted.push(single)
+          if (
+            lower.includes('base_price') ||
+            lower.includes('baseprice') ||
+            lower.includes('base price') ||
+            lower.includes('price') ||
+            lower.includes('rate')
+          ) {
+            priceColIdx = idx
+          }
+        })
+      }
+
+      const dataRows = isHeaderRow ? rows.slice(1) : rows
+      const extracted: Array<{ categoryName: string; basePrice?: number }> = []
+
+      for (const row of dataRows) {
+        const catName = row[nameColIdx] ? row[nameColIdx].trim() : ''
+        if (!catName) continue
+
+        let basePrice: number | undefined
+        const rawPriceStr = row[priceColIdx] ? row[priceColIdx].replace(/[₹$,]/g, '').trim() : ''
+        if (rawPriceStr !== '') {
+          const parsed = parseFloat(rawPriceStr)
+          if (!isNaN(parsed) && parsed >= 0) {
+            basePrice = parsed
           }
         }
+
+        extracted.push({ categoryName: catName, basePrice })
       }
 
       // Deduplicate within the incoming batch
@@ -193,7 +203,7 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
           validItems: [],
           duplicateNames: [],
           error:
-            'No valid category names found in JSON. Format: ["Category1", "Category2"] or [{"categoryName": "...", "basePrice": 150}]',
+            'No valid category names found in CSV. Expected format: Category Name, Base Price (e.g. "Beverages, 120")',
         })
         return
       }
@@ -219,10 +229,10 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
       setParsedPreview({
         validItems: [],
         duplicateNames: [],
-        error: `JSON syntax error: ${err.message}`,
+        error: `CSV parsing error: ${err.message}`,
       })
     }
-  }, [jsonText, categories])
+  }, [csvText, categories])
 
   if (!isOpen) return null
 
@@ -298,16 +308,16 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (!file.name.endsWith('.json') && file.type !== 'application/json') {
-      showToast('Please upload a valid .json file', 'error')
+    if (!file.name.toLowerCase().endsWith('.csv') && file.type !== 'text/csv') {
+      showToast('Please upload a valid .csv file', 'error')
       return
     }
 
     const reader = new FileReader()
     reader.onload = (event) => {
       const content = event.target?.result as string
-      setJsonText(content)
-      setActiveTab('json')
+      setCsvText(content)
+      setActiveTab('csv')
       showToast(`Loaded "${file.name}" into preview`, 'info')
     }
     reader.onerror = () => {
@@ -316,58 +326,70 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
     reader.readAsText(file)
   }
 
-  const handleImportJson = async () => {
+  const handleImportCsv = async () => {
     if (parsedPreview.validItems.length === 0) {
       showToast('No new categories to import', 'warning')
       return
     }
 
-    setIsImportingJson(true)
+    setIsImportingCsv(true)
     try {
       await addBulkCategories(parsedPreview.validItems)
-      setJsonText('')
+      setCsvText('')
       setParsedPreview({ validItems: [], duplicateNames: [], error: null })
       setActiveTab('list')
     } catch {
       // Handled in context
     } finally {
-      setIsImportingJson(false)
+      setIsImportingCsv(false)
     }
   }
 
-  const handleDownloadSampleJson = () => {
-    const sample = [
-      { categoryName: 'Beverages & Drinks', basePrice: 120 },
-      { categoryName: 'Bakery & Bread', basePrice: 65 },
-      { categoryName: 'Dairy & Eggs', basePrice: 85 },
-      { categoryName: 'Organic Snacks', basePrice: 150 },
-      { categoryName: 'Personal Care & Hygiene' },
-      { categoryName: 'Household Essentials' },
+  const handleDownloadSampleCsv = () => {
+    const sampleHeaders = ['Category Name', 'Base Price']
+    const sampleRows = [
+      ['Beverages & Drinks', '120'],
+      ['Bakery & Bread', '65'],
+      ['Dairy & Eggs', '85'],
+      ['Organic Snacks', '150'],
+      ['Personal Care & Hygiene', ''],
+      ['Household Essentials', ''],
     ]
-    const blob = new Blob([JSON.stringify(sample, null, 2)], { type: 'application/json' })
+    const csvContent = [
+      sampleHeaders.join(','),
+      ...sampleRows.map((r) => `"${r[0].replace(/"/g, '""')}",${r[1]}`),
+    ].join('\r\n')
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'sample-categories-template.json'
+    a.download = 'sample-categories-template.csv'
     a.click()
     URL.revokeObjectURL(url)
-    showToast('Downloaded sample JSON template', 'success')
+    showToast('Downloaded sample CSV template', 'success')
   }
 
-  const handleExportCurrentCategories = () => {
-    const exportData = categories.map((c) => ({
-      categoryId: c.categoryId,
-      categoryName: c.categoryName,
-      basePrice: c.basePrice,
-    }))
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+  const handleExportCurrentCategoriesCsv = () => {
+    if (categories.length === 0) {
+      showToast('No categories to export', 'info')
+      return
+    }
+    const headers = ['Category ID', 'Category Name', 'Base Price']
+    const rows = categories.map((c) => [
+      `"${c.categoryId}"`,
+      `"${c.categoryName.replace(/"/g, '""')}"`,
+      typeof c.basePrice === 'number' && c.basePrice > 0 ? c.basePrice : '',
+    ])
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n')
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `business-categories-${new Date().toISOString().split('T')[0]}.json`
+    a.download = `business-categories-${new Date().toISOString().split('T')[0]}.csv`
     a.click()
     URL.revokeObjectURL(url)
-    showToast(`Exported ${categories.length} categories to JSON`, 'success')
+    showToast(`Exported ${categories.length} categories to CSV`, 'success')
   }
 
   const filteredCategories = categories.filter((cat) => {
@@ -406,8 +428,7 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
           </div>
 
           <p className="font-body-sm text-[12px] text-on-surface-variant leading-tight">
-            Add categories individually or batch-import from JSON to feed multiple business
-            catalogs.
+            Add categories individually or batch-import from CSV to feed multiple business catalogs.
           </p>
 
           {/* Quick Stats & Export Bar */}
@@ -417,12 +438,12 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
             </span>
             <button
               type="button"
-              onClick={handleExportCurrentCategories}
+              onClick={handleExportCurrentCategoriesCsv}
               className="flex items-center gap-1 text-[11px] text-primary hover:underline font-semibold cursor-pointer"
-              title="Export all categories as JSON file"
+              title="Export all categories as CSV file"
             >
               <span className="material-symbols-outlined text-[14px]">download</span>
-              <span>Export JSON</span>
+              <span>Export CSV</span>
             </button>
           </div>
         </div>
@@ -444,15 +465,15 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
 
           <button
             type="button"
-            onClick={() => setActiveTab('json')}
+            onClick={() => setActiveTab('csv')}
             className={`pb-2 px-2 flex items-center gap-1.5 border-b-2 transition-all cursor-pointer ${
-              activeTab === 'json'
+              activeTab === 'csv'
                 ? 'border-primary text-primary font-bold'
                 : 'border-transparent text-on-surface-variant hover:text-on-surface'
             }`}
           >
-            <span className="material-symbols-outlined text-[16px]">data_object</span>
-            <span>Import JSON</span>
+            <span className="material-symbols-outlined text-[16px]">table_view</span>
+            <span>Import CSV</span>
           </button>
 
           <button
@@ -533,42 +554,42 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
                 </p>
               </form>
 
-              {/* Quick Jump to JSON Feed */}
+              {/* Quick Jump to CSV Feed */}
               <div className="p-3 bg-surface-container-low rounded-DEFAULT border border-outline-variant/30 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   <span className="material-symbols-outlined text-secondary text-[20px]">
-                    upload_file
+                    table_view
                   </span>
                   <div className="flex flex-col">
                     <span className="font-label-sm text-xs font-semibold text-on-surface">
-                      Have multiple business categories in JSON?
+                      Have multiple business categories in CSV?
                     </span>
                     <span className="text-[11px] text-on-surface-variant">
-                      Upload or paste a JSON array to feed all at once.
+                      Upload or paste CSV rows to import all at once.
                     </span>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setActiveTab('json')}
+                  onClick={() => setActiveTab('csv')}
                   className="px-2.5 py-1 text-xs bg-surface-container hover:bg-surface-container-high rounded font-semibold text-primary transition-colors cursor-pointer shrink-0"
                 >
-                  Import JSON
+                  Import CSV
                 </button>
               </div>
             </div>
           )}
 
-          {/* TAB 2: IMPORT VIA JSON */}
-          {activeTab === 'json' && (
+          {/* TAB 2: IMPORT VIA CSV */}
+          {activeTab === 'csv' && (
             <div className="flex flex-col gap-pad-md">
               <div className="flex items-center justify-between">
                 <label className="block font-label-sm text-label-sm font-semibold text-on-surface">
-                  JSON Data Feed & File Import
+                  CSV Data Feed & File Import
                 </label>
                 <button
                   type="button"
-                  onClick={handleDownloadSampleJson}
+                  onClick={handleDownloadSampleCsv}
                   className="text-xs text-primary hover:underline flex items-center gap-1 font-semibold cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[14px]">file_download</span>
@@ -582,7 +603,7 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileUpload}
-                  accept=".json,application/json"
+                  accept=".csv,text/csv"
                   className="hidden"
                 />
                 <button
@@ -591,27 +612,27 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
                   className="w-full p-3 border-2 border-dashed border-outline-variant/60 hover:border-primary/60 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[24px] text-primary">
-                    file_upload
+                    upload_file
                   </span>
                   <span className="font-label-sm text-xs font-semibold text-on-surface">
-                    Upload .JSON File
+                    Upload .CSV File
                   </span>
                   <span className="text-[11px] text-on-surface-variant">
-                    Click to select file from your computer
+                    Click to select a CSV file from your computer
                   </span>
                 </button>
               </div>
 
-              {/* Or Paste Raw JSON Text */}
+              {/* Or Paste Raw CSV Text */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
-                    Or Paste JSON Directly:
+                    Or Paste CSV Directly:
                   </span>
-                  {jsonText && (
+                  {csvText && (
                     <button
                       type="button"
-                      onClick={() => setJsonText('')}
+                      onClick={() => setCsvText('')}
                       className="text-[11px] text-error hover:underline cursor-pointer"
                     >
                       Clear
@@ -620,15 +641,15 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
                 </div>
                 <textarea
                   rows={6}
-                  value={jsonText}
-                  onChange={(e) => setJsonText(e.target.value)}
-                  placeholder={`[\n  {\n    "categoryName": "Beverages & Drinks",\n    "basePrice": 120\n  },\n  {\n    "categoryName": "Bakery & Bread",\n    "basePrice": 60\n  }\n]`}
+                  value={csvText}
+                  onChange={(e) => setCsvText(e.target.value)}
+                  placeholder={`Category Name, Base Price\nBeverages & Drinks, 120\nBakery & Bread, 65\nDairy & Eggs, 85\nOrganic Snacks, 150`}
                   className="w-full p-2.5 font-mono text-xs bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs leading-relaxed"
                 />
               </div>
 
-              {/* JSON Parse / Action Button */}
-              {jsonText.trim() && (
+              {/* CSV Parse / Action Button */}
+              {csvText.trim() && (
                 <div className="flex flex-col gap-2">
                   {parsedPreview.error ? (
                     <div className="p-2.5 bg-error-container/20 border border-error/30 rounded-DEFAULT flex items-center gap-2 text-error text-xs">
@@ -639,13 +660,13 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
                     <div className="flex flex-col gap-1.5">
                       <button
                         type="button"
-                        onClick={handleImportJson}
-                        disabled={isImportingJson}
+                        onClick={handleImportCsv}
+                        disabled={isImportingCsv}
                         className="w-full py-2.5 bg-primary text-on-primary hover:bg-inverse-surface disabled:opacity-50 rounded-DEFAULT font-semibold text-xs transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <span className="material-symbols-outlined text-[16px]">save_alt</span>
                         <span>
-                          {isImportingJson
+                          {isImportingCsv
                             ? 'Importing...'
                             : `Import ${parsedPreview.validItems.length} ${
                                 parsedPreview.validItems.length === 1 ? 'Category' : 'Categories'

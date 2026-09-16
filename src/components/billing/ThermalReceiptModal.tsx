@@ -191,7 +191,28 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
         </button>
 
         {/* Scrollable Receipt Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto bg-slate-100/70 flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto bg-slate-100/70 flex-1 flex flex-col items-center">
+          {/* Internal Staff Note Banner (Hidden from print, visible only on screen) */}
+          {invoice.internalNote && (
+            <div
+              className={`mb-3 p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 shadow-xs w-full ${
+                format === 'horizontal' ? 'max-w-4xl' : 'max-w-[380px]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-amber-600 text-[18px] shrink-0 mt-0.5">
+                sticky_note_2
+              </span>
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="font-bold text-[10px] uppercase tracking-wider text-amber-800">
+                  Staff Note (Hidden from customer bill):
+                </span>
+                <p className="font-medium leading-relaxed whitespace-pre-wrap">
+                  {invoice.internalNote}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div id="printable-bill-container" className="w-full flex justify-center">
             {format === 'horizontal' ? (
               <HorizontalInvoice invoice={invoice} templateOverride={tmpl} />

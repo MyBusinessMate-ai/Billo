@@ -212,7 +212,17 @@ export const BillingHistoryTable: React.FC<BillingHistoryTableProps> = ({
                       } ${isRefunded ? 'opacity-70 bg-surface-container-low/30' : ''}`}
                     >
                       <td className="py-3 px-pad-md font-mono-numeric-sm font-semibold text-on-surface">
-                        {inv.id}
+                        <div className="flex items-center gap-1.5">
+                          <span>{inv.id}</span>
+                          {inv.internalNote && (
+                            <span
+                              className="material-symbols-outlined text-[15px] text-amber-600 dark:text-amber-400 cursor-help shrink-0"
+                              title={`Staff Note: ${inv.internalNote}`}
+                            >
+                              sticky_note_2
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-pad-md text-on-surface">
                         <div>{inv.customer.name || 'Walk-in Customer'}</div>

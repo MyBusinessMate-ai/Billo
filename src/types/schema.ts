@@ -97,6 +97,7 @@ export const BillingSchema = z.object({
   discountAmount: z.number().optional(),
   total: z.number().nonnegative('Billing total must be non-negative'),
   billMode: BillingModeSchema,
+  internalNote: z.string().optional(),
   createdAt: FirestoreTimestampSchema,
   updatedAt: FirestoreTimestampSchema,
 })

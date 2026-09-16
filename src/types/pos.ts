@@ -67,6 +67,7 @@ export interface BillingInvoice {
   cashTendered?: number
   changeDue?: number
   status: InvoiceStatus
+  internalNote?: string
   timestamp: string
   date: string
 }

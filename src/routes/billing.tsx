@@ -184,6 +184,7 @@ function MakeBillingPage() {
     discountCode?: string
     discountAmount: number
     printReceipt: boolean
+    internalNote?: string
   }) => {
     const subtotal = items.reduce((sum, item) => sum + item.total, 0)
     const defaultTaxPercent =
@@ -219,6 +220,7 @@ function MakeBillingPage() {
       paymentMethod: paymentDetails.paymentMethod,
       cashTendered: paymentDetails.cashTendered,
       changeDue: paymentDetails.changeDue,
+      internalNote: paymentDetails.internalNote,
       status: 'completed',
       timestamp: currentTime ? currentTime.split(' ')[1] : '14:32:08',
       date: currentDate || '2024-10-24',

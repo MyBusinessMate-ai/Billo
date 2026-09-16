@@ -635,6 +635,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : invoiceData.paymentMethod.toUpperCase().includes('CARD')
             ? 'card'
             : 'cash',
+        internalNote: invoiceData.internalNote,
       })
       .then(({ billingId }) => {
         setInvoices((prev) =>

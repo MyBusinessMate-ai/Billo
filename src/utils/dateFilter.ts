@@ -160,6 +160,7 @@ export function exportBillingInvoicesToCSV(
     'Net Total (INR)',
     'Payment Rail',
     'Status',
+    'Internal Note',
   ]
 
   const escapeCSV = (val: string | number | undefined | null) => {
@@ -181,6 +182,7 @@ export function exportBillingInvoicesToCSV(
     (inv.netTotal || 0).toFixed(2),
     escapeCSV(inv.paymentMethod || 'Cash'),
     escapeCSV((inv.status || 'completed').toUpperCase()),
+    escapeCSV(inv.internalNote || ''),
   ])
 
   const csvString = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n')
