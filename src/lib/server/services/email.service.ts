@@ -111,7 +111,7 @@ export const sendOtpEmailServerFn = createServerFn({ method: 'POST' })
 
     const senderOptions = [
       `${appName} <noreply@mybusinessmate.ai>`,
-      `${appName} <onboarding@resend.dev>`,
+      // `${appName} <onboarding@resend.dev>`,
     ]
 
     let lastError: any = null
@@ -128,6 +128,7 @@ export const sendOtpEmailServerFn = createServerFn({ method: 'POST' })
             from: fromAddress,
             to: [toEmail],
             reply_to: 'support@mybusinessmate.ai',
+
             subject,
             text: plainText,
             html: htmlContent,

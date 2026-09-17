@@ -551,23 +551,27 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateProductStock(item.productId, item.quantity)
     })
 
+    let assignedCustomerId = invoiceData.customer.id
+
     // If customer is not walk-in and has phone / name
     if (
       !invoiceData.customer.isWalkIn &&
       invoiceData.customer.name &&
-      invoiceData.customer.phone &&
-      invoiceData.customer.phone !== '—'
+      invoiceData.customer.name.trim() &&
+      invoiceData.customer.name.trim().toLowerCase() !== 'walk-in customer' &&
+      invoiceData.customer.name.trim().toLowerCase() !== 'walk-in'
     ) {
-      const cleanPhone = sanitizePhone(invoiceData.customer.phone)
+      const cleanPhone = sanitizePhone(invoiceData.customer.phone || '')
       const existing = customers.find(
         (c) =>
-          (invoiceData.customer.id && c.id === invoiceData.customer.id) ||
+          (assignedCustomerId && c.id === assignedCustomerId) ||
           (cleanPhone.length >= 7 && sanitizePhone(c.phone) === cleanPhone)
       )
 
       const timeStamp = `${currentDate || '2026-09-08'} ${currentTime ? currentTime.split(' ')[1] : '12:00:00'}`
 
       if (existing) {
+        assignedCustomerId = existing.id
         setCustomers((prev) =>
           prev.map((c) => {
             if (c.id === existing.id) {
@@ -575,8 +579,8 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 ...c,
                 name: invoiceData.customer.name || c.name,
                 email: invoiceData.customer.email || c.email,
-                visits: c.visits + 1,
-                totalSpend: c.totalSpend + invoiceData.netTotal,
+                visits: (c.visits || 0) + 1,
+                totalSpend: (c.totalSpend || 0) + invoiceData.netTotal,
                 lastVisit: timeStamp,
               }
             }
@@ -584,9 +588,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           })
         )
       } else {
-        addCustomer({
+        const createdCust = addCustomer({
           name: invoiceData.customer.name,
-          phone: invoiceData.customer.phone,
+          phone: invoiceData.customer.phone || '—',
           email: invoiceData.customer.email,
           visits: 1,
           totalSpend: invoiceData.netTotal,
@@ -597,10 +601,21 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               ? 'Cash'
               : 'Card',
         })
+        assignedCustomerId = createdCust.id
       }
     }
 
-    setInvoices((prev) => [newInvoice, ...prev])
+    const resolvedCustomer = {
+      ...invoiceData.customer,
+      id: assignedCustomerId,
+    }
+
+    const invoiceWithCustomer = {
+      ...newInvoice,
+      customer: resolvedCustomer,
+    }
+
+    setInvoices((prev) => [invoiceWithCustomer, ...prev])
 
     // Find category ID for line items
     const findCatId = (catName: string) => {
@@ -611,7 +626,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Orchestrate with billingService asynchronously in atomic transaction
     billingService
       .createInvoice({
-        customerId: invoiceData.customer.id,
+        customerId: assignedCustomerId,
         customerName: invoiceData.customer.name,
         customerPhone: invoiceData.customer.phone,
         customerEmail: invoiceData.customer.email,
@@ -646,7 +661,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('[POSContext] Billing transaction notice:', err)
       })
 
-    return newInvoice
+    return invoiceWithCustomer
   }
 
   const getInvoiceById = (id: string) => {

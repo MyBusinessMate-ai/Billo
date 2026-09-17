@@ -8,24 +8,46 @@ interface AddProductModalProps {
 }
 
 export const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose }) => {
-  const { addProduct, currentDate, categories } = usePOS()
+  const { addProduct, currentDate, categories, settings, showToast } = usePOS()
 
   const [name, setName] = useState('')
   const [sku, setSku] = useState('SKU-' + Math.floor(100000 + Math.random() * 900000))
   const [ean, setEan] = useState('EAN-' + Math.floor(100000 + Math.random() * 900000))
   const [category, setCategory] = useState<string>(() => categories[0]?.categoryName || 'General')
-  const [costPrice, setCostPrice] = useState<number>(1.5)
+  const [costPrice, setCostPrice] = useState<number>(0)
   const [sellingPrice, setSellingPrice] = useState<number>(200)
   const [stock, setStock] = useState<number>(50)
   const [unit, setUnit] = useState<string>('pcs')
+  const [customFields, setCustomFields] = useState<Record<string, any>>({})
+
+  const configuredFields = settings.productFields || []
 
   if (!isOpen) return null
+
+  const handleCustomFieldChange = (fieldId: string, val: any) => {
+    setCustomFields((prev) => ({
+      ...prev,
+      [fieldId]: val,
+    }))
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
 
-    const margin = Math.round(((sellingPrice - costPrice * 80) / sellingPrice) * 100) || 40
+    // Validate required custom fields
+    for (const cf of configuredFields) {
+      if (cf.required) {
+        const v = customFields[cf.id]
+        if (v === undefined || v === null || (typeof v === 'string' && !v.trim())) {
+          showToast(`Please fill in required custom field: "${cf.name}"`, 'error')
+          return
+        }
+      }
+    }
+
+    const margin =
+      sellingPrice > 0 ? Math.round(((sellingPrice - costPrice) / sellingPrice) * 100) : 0
 
     addProduct({
       name,
@@ -34,11 +56,12 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClos
       category,
       costPrice,
       sellingPrice,
-      margin: Math.max(10, margin),
+      margin: Math.max(0, margin),
       stock,
       unit,
       status: stock > 10 ? 'in_stock' : stock > 0 ? 'low_stock' : 'out_of_stock',
       lastRestocked: currentDate,
+      customFields: Object.keys(customFields).length > 0 ? customFields : undefined,
     })
 
     onClose()
@@ -46,26 +69,26 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClos
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden border border-slate-200">
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
         {/* Modal Header */}
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-2">
             <PackagePlus className="w-4 h-4 text-emerald-600" />
             <h3 className="text-sm font-bold text-slate-900">Add New Inventory Product</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-3 text-xs">
+        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-3 text-xs overflow-y-auto">
           <div>
             <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-              Product Title
+              Product Title <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
@@ -103,7 +126,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClos
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Category
+                Category <span className="text-rose-500">*</span>
               </label>
               <select
                 value={category}
@@ -132,6 +155,8 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClos
                 <option value="packs">Packs</option>
                 <option value="kg">Kilograms (kg)</option>
                 <option value="bottles">Bottles</option>
+                <option value="meters">Meters (m)</option>
+                <option value="boxes">Boxes</option>
               </select>
             </div>
           </div>
@@ -139,37 +164,125 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClos
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Cost ($)
+                Cost (₹)
               </label>
               <input
                 type="number"
-                step="0.1"
+                step="0.01"
+                min="0"
                 value={costPrice}
-                onChange={(e) => setCostPrice(Number(e.target.value))}
+                onChange={(e) => setCostPrice(parseFloat(e.target.value) || 0)}
                 className="w-full h-9 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-mono"
               />
             </div>
             <div>
               <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Selling (₹)
+                Selling (₹) <span className="text-rose-500">*</span>
               </label>
               <input
                 type="number"
+                step="0.01"
+                min="0"
+                required
                 value={sellingPrice}
-                onChange={(e) => setSellingPrice(Number(e.target.value))}
+                onChange={(e) => setSellingPrice(parseFloat(e.target.value) || 0)}
                 className="w-full h-9 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-mono font-bold"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">Stock</label>
+              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                Stock <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="number"
+                min="0"
+                required
                 value={stock}
-                onChange={(e) => setStock(Number(e.target.value))}
+                onChange={(e) => setStock(parseInt(e.target.value, 10) || 0)}
                 className="w-full h-9 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 font-mono"
               />
             </div>
           </div>
+
+          {/* Dynamic Custom Product Attributes */}
+          {configuredFields.length > 0 && (
+            <div className="pt-2 border-t border-slate-200 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                  Custom Product Attributes
+                </span>
+                <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">
+                  {configuredFields.length} configured
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {configuredFields.map((field) => {
+                  const val = customFields[field.id] ?? field.defaultValue ?? ''
+
+                  return (
+                    <div
+                      key={field.id}
+                      className={field.type === 'textarea' ? 'sm:col-span-2' : ''}
+                    >
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        {field.name} {field.required && <span className="text-rose-500">*</span>}
+                      </label>
+                      {field.type === 'select' ? (
+                        <select
+                          required={field.required}
+                          value={val}
+                          onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
+                          className="w-full h-9 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-xs focus:outline-none focus:bg-white focus:border-slate-400"
+                        >
+                          <option value="">-- Select {field.name} --</option>
+                          {field.options?.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                      ) : field.type === 'boolean' ? (
+                        <label className="flex items-center gap-2 h-9 px-2.5 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(val)}
+                            onChange={(e) => handleCustomFieldChange(field.id, e.target.checked)}
+                            className="rounded border-slate-300 text-slate-900"
+                          />
+                          <span className="text-xs text-slate-700">Enable {field.name}</span>
+                        </label>
+                      ) : field.type === 'textarea' ? (
+                        <textarea
+                          rows={2}
+                          required={field.required}
+                          value={val}
+                          onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
+                          placeholder={field.placeholder || `Enter ${field.name}`}
+                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-xs focus:outline-none focus:bg-white focus:border-slate-400"
+                        />
+                      ) : (
+                        <input
+                          type={
+                            field.type === 'number'
+                              ? 'number'
+                              : field.type === 'date'
+                                ? 'date'
+                                : 'text'
+                          }
+                          required={field.required}
+                          value={val}
+                          onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
+                          placeholder={field.placeholder || `Enter ${field.name}`}
+                          className="w-full h-9 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 text-xs focus:outline-none focus:bg-white focus:border-slate-400"
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2 mt-2">
             <button

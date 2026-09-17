@@ -326,9 +326,21 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({ onEditProduct })
                         <span className="font-label-md text-label-md font-semibold text-on-surface truncate">
                           {prod.name}
                         </span>
-                        <span className="font-mono-numeric-sm text-[11px] text-on-surface-variant">
-                          {prod.sku} • {prod.ean}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1 font-mono-numeric-sm text-[11px] text-on-surface-variant">
+                          <span>{prod.sku}</span>
+                          {prod.ean && <span>• {prod.ean}</span>}
+                          {prod.customFields &&
+                            Object.entries(prod.customFields)
+                              .slice(0, 2)
+                              .map(([k, v]) => (
+                                <span
+                                  key={k}
+                                  className="px-1 py-0.2 text-[10px] rounded bg-surface-container font-mono text-on-surface-variant"
+                                >
+                                  {String(v)}
+                                </span>
+                              ))}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -342,12 +354,12 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({ onEditProduct })
 
                   {/* Cost Price */}
                   <td className="px-pad-sm text-right font-mono-numeric-md text-mono-numeric-md text-on-surface-variant">
-                    ${prod.costPrice.toFixed(2)}
+                    ₹{prod.costPrice.toFixed(2)}
                   </td>
 
                   {/* Selling Price */}
                   <td className="px-pad-sm text-right font-mono-numeric-md text-mono-numeric-md font-semibold text-on-surface">
-                    ${(prod.sellingPrice / 100).toFixed(2)}
+                    ₹{prod.sellingPrice.toFixed(2)}
                   </td>
 
                   {/* Margin */}

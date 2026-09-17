@@ -33,27 +33,13 @@ export const CustomerDossierDrawer: React.FC<CustomerDossierDrawerProps> = ({
     // 1. Direct customer ID match
     if (inv.customer?.id && customer.id && inv.customer.id === customer.id) return true
 
-    // 2. Phone match (flexible matching for formats, suffixes, or substring)
-    if (cleanCustomerPhone && inv.customer?.phone) {
+    // 2. Exact Phone match (7+ digits)
+    if (cleanCustomerPhone && cleanCustomerPhone.length >= 7 && inv.customer?.phone) {
       const cleanInvPhone = inv.customer.phone.replace(/\D/g, '')
-      if (cleanInvPhone && cleanCustomerPhone) {
-        if (cleanInvPhone === cleanCustomerPhone) return true
-        if (cleanInvPhone.length >= 7 && cleanCustomerPhone.length >= 7) {
-          if (
-            cleanInvPhone.endsWith(cleanCustomerPhone) ||
-            cleanCustomerPhone.endsWith(cleanInvPhone)
-          )
-            return true
-        }
-        if (
-          cleanInvPhone.length >= 4 &&
-          (cleanInvPhone.includes(cleanCustomerPhone) || cleanCustomerPhone.includes(cleanInvPhone))
-        )
-          return true
-      }
+      if (cleanInvPhone === cleanCustomerPhone) return true
     }
 
-    // 3. Email match
+    // 3. Exact Email match
     if (
       customer.email &&
       customer.email.trim() &&
@@ -70,7 +56,10 @@ export const CustomerDossierDrawer: React.FC<CustomerDossierDrawerProps> = ({
       const invName = inv.customer.name.trim().toLowerCase()
       const genericNames = ['walk-in customer', 'walk-in', 'customer', 'loyalty customer', '']
       if (!genericNames.includes(cName) && cName === invName) {
-        return true
+        const cleanInvPhone = inv.customer.phone ? inv.customer.phone.replace(/\D/g, '') : ''
+        if (!cleanInvPhone || !cleanCustomerPhone || cleanInvPhone === cleanCustomerPhone) {
+          return true
+        }
       }
     }
     return false

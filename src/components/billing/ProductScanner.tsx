@@ -199,7 +199,9 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
       price: customPrice,
       quantity: quantity,
       total: customPrice * quantity,
-      gstPercent: typeof itemGstPercent === 'number' && itemGstPercent > 0 ? itemGstPercent : 0,
+      gstPercent:
+        typeof itemGstPercent === 'number' && itemGstPercent > 0 ? itemGstPercent : undefined,
+      customFields: matched?.customFields,
     })
     setProductName('')
     setCustomPrice(0)

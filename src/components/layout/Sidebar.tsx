@@ -40,6 +40,11 @@ export const Sidebar: React.FC = () => {
 
   const management = [
     {
+      name: 'Setup',
+      path: '/setup',
+      icon: 'settings_suggest',
+    },
+    {
       name: 'Library',
       path: '/library',
       icon: 'folder',

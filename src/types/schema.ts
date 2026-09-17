@@ -69,6 +69,11 @@ export const BillingItemSchema = z.object({
   quantity: z.number().positive('Quantity must be greater than 0'),
   unitPrice: z.number().nonnegative('Unit price must be non-negative'),
   total: z.number().nonnegative('Line total must be non-negative'),
+  gstPercent: z.number().nonnegative().optional(),
+  hsn: z.string().optional(),
+  discountAmount: z.number().nonnegative().optional(),
+  discountPercent: z.number().nonnegative().optional(),
+  customFields: z.record(z.string(), z.any()).optional(),
 })
 
 export type BillingItem = z.infer<typeof BillingItemSchema>
@@ -104,6 +109,43 @@ export const BillingSchema = z.object({
 
 export type Billing = z.infer<typeof BillingSchema>
 
+export const CustomFieldTypeSchema = z.enum([
+  'text',
+  'number',
+  'link',
+  'date',
+  'select',
+  'boolean',
+  'textarea',
+])
+
+export const CustomProductFieldSchema = z.object({
+  id: z.string().min(1, 'Field ID is required'),
+  name: z.string().min(1, 'Field name is required'),
+  type: CustomFieldTypeSchema,
+  options: z.array(z.string()).optional(),
+  required: z.boolean().optional(),
+  placeholder: z.string().optional(),
+  defaultValue: z.union([z.string(), z.number(), z.boolean()]).optional(),
+  showInBilling: z.boolean().optional(),
+  showInReceipt: z.boolean().optional(),
+  description: z.string().optional(),
+})
+
+export type CustomProductField = z.infer<typeof CustomProductFieldSchema>
+
+export const BillingRulesSchema = z.object({
+  enableItemGst: z.boolean().default(false),
+  defaultGstPercent: z.number().nonnegative().default(0),
+  requireGstin: z.boolean().optional(),
+  enableItemDiscount: z.boolean().default(true),
+  enableInvoiceDiscount: z.boolean().default(true),
+  maxDiscountPercent: z.number().nonnegative().optional(),
+  enableCustomFieldsInBilling: z.boolean().optional(),
+})
+
+export type BillingRules = z.infer<typeof BillingRulesSchema>
+
 export const ProductIdSchema = z
   .string()
   .regex(/^PROD-\d{6}$/, "Product ID must follow 'PROD-{6 DIGIT}' (e.g. PROD-000001)")
@@ -117,6 +159,7 @@ export const ProductSchema = z.object({
   quantity: z.number().int().nonnegative('Available quantity must be non-negative'),
   lowStockThreshold: z.number().int().nonnegative().default(10),
   isActive: z.boolean().default(true),
+  customFields: z.record(z.string(), z.any()).optional(),
   createdAt: FirestoreTimestampSchema,
   updatedAt: FirestoreTimestampSchema,
 })
@@ -201,6 +244,8 @@ export const SettingsSchema = z.object({
   themeMode: z.enum(['light', 'dark']).optional(),
   backgroundColor: z.string().optional(),
   textColor: z.string().optional(),
+  productFields: z.array(CustomProductFieldSchema).optional(),
+  billingRules: BillingRulesSchema.optional(),
   createdAt: FirestoreTimestampSchema,
   updatedAt: FirestoreTimestampSchema,
 })

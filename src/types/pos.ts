@@ -17,6 +17,32 @@ export interface Customer {
 
 export type StockStatus = 'in_stock' | 'low_stock' | 'out_of_stock'
 
+export type CustomFieldType =
+  'text' | 'number' | 'link' | 'date' | 'select' | 'boolean' | 'textarea'
+
+export interface CustomProductField {
+  id: string
+  name: string
+  type: CustomFieldType
+  options?: string[] // For 'select' type (e.g. ['Small', 'Medium', 'Large'])
+  required?: boolean
+  placeholder?: string
+  defaultValue?: string | number | boolean
+  showInBilling?: boolean
+  showInReceipt?: boolean
+  description?: string
+}
+
+export interface BillingRulesConfig {
+  enableItemGst: boolean // Every item has GST or not
+  defaultGstPercent: number // Default GST percentage (e.g. 5, 12, 18, etc.)
+  requireGstin?: boolean
+  enableItemDiscount: boolean // Items should have discount or not
+  enableInvoiceDiscount: boolean // Bill-level discount toggle
+  maxDiscountPercent?: number // Cap on allowed discount %
+  enableCustomFieldsInBilling?: boolean
+}
+
 export interface Product {
   id: string
   name: string
@@ -31,6 +57,7 @@ export interface Product {
   status: StockStatus
   lastRestocked: string
   imageUrl?: string
+  customFields?: Record<string, any>
 }
 
 export interface BillingItem {
@@ -42,6 +69,9 @@ export interface BillingItem {
   total: number
   gstPercent?: number
   hsn?: string
+  discountAmount?: number
+  discountPercent?: number
+  customFields?: Record<string, any>
 }
 
 export type InvoiceStatus = 'completed' | 'refunded' | 'hold'
@@ -165,4 +195,6 @@ export interface StoreSettings {
   themeMode?: 'light' | 'dark'
   backgroundColor?: string
   textColor?: string
+  productFields?: CustomProductField[]
+  billingRules?: BillingRulesConfig
 }

@@ -35,6 +35,60 @@ export const CustomerDirectoryTable: React.FC<CustomerDirectoryTableProps> = () 
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
+  // Aggregate registered customers and extract any unrecorded customer profiles from historical invoices
+  const allCustomers = React.useMemo(() => {
+    const map = new Map<string, Customer>()
+
+    // 1. Add registered customers from DB/context
+    customers.forEach((c) => {
+      const key = c.id || (c.phone ? c.phone.replace(/\D/g, '') : c.name.toLowerCase())
+      map.set(key, c)
+    })
+
+    // 2. Discover any unique customers from invoices who aren't in the registry yet
+    invoices.forEach((inv) => {
+      const invCust = inv.customer
+      if (
+        invCust &&
+        !invCust.isWalkIn &&
+        invCust.name &&
+        invCust.name.trim() &&
+        invCust.name.toLowerCase() !== 'walk-in customer' &&
+        invCust.name.toLowerCase() !== 'walk-in'
+      ) {
+        const cleanInvPhone = invCust.phone ? invCust.phone.replace(/\D/g, '') : ''
+        const matchExists = Array.from(map.values()).some((c) => {
+          if (invCust.id && c.id === invCust.id) return true
+          if (
+            cleanInvPhone &&
+            cleanInvPhone.length >= 7 &&
+            c.phone.replace(/\D/g, '') === cleanInvPhone
+          )
+            return true
+          return false
+        })
+
+        if (!matchExists) {
+          const key = invCust.id || cleanInvPhone || invCust.name.toLowerCase()
+          map.set(key, {
+            id:
+              invCust.id ||
+              `CUS-${(inv.date || '2026').slice(0, 4)}-${Math.floor(100000 + Math.random() * 900000)}`,
+            name: invCust.name,
+            phone: invCust.phone && invCust.phone !== '—' ? invCust.phone : '—',
+            email: invCust.email || '',
+            visits: 1,
+            totalSpend: inv.netTotal || 0,
+            lastVisit: `${inv.date} ${inv.timestamp || ''}`,
+            preferredRail: 'UPI',
+          })
+        }
+      }
+    })
+
+    return Array.from(map.values())
+  }, [customers, invoices])
+
   // Helper to get real live invoices for a customer from database state
   const getCustomerInvoices = (cust: Customer): BillingInvoice[] => {
     const cleanCustomerPhone = cust.phone ? cust.phone.replace(/\D/g, '') : ''
@@ -42,28 +96,13 @@ export const CustomerDirectoryTable: React.FC<CustomerDirectoryTableProps> = () 
       // 1. Direct customer ID match
       if (inv.customer?.id && cust.id && inv.customer.id === cust.id) return true
 
-      // 2. Phone match (flexible matching for formats, suffixes, or substring)
-      if (cleanCustomerPhone && inv.customer?.phone) {
+      // 2. Exact Phone match (clean 10/7+ digits)
+      if (cleanCustomerPhone && cleanCustomerPhone.length >= 7 && inv.customer?.phone) {
         const cleanInvPhone = inv.customer.phone.replace(/\D/g, '')
-        if (cleanInvPhone && cleanCustomerPhone) {
-          if (cleanInvPhone === cleanCustomerPhone) return true
-          if (cleanInvPhone.length >= 7 && cleanCustomerPhone.length >= 7) {
-            if (
-              cleanInvPhone.endsWith(cleanCustomerPhone) ||
-              cleanCustomerPhone.endsWith(cleanInvPhone)
-            )
-              return true
-          }
-          if (
-            cleanInvPhone.length >= 4 &&
-            (cleanInvPhone.includes(cleanCustomerPhone) ||
-              cleanCustomerPhone.includes(cleanInvPhone))
-          )
-            return true
-        }
+        if (cleanInvPhone === cleanCustomerPhone) return true
       }
 
-      // 3. Email match
+      // 3. Exact Email match
       if (
         cust.email &&
         cust.email.trim() &&
@@ -74,20 +113,23 @@ export const CustomerDirectoryTable: React.FC<CustomerDirectoryTableProps> = () 
         return true
       }
 
-      // 4. Exact Customer Name match (ignoring generic labels)
+      // 4. Exact Customer Name match (only if not generic and phone is compatible)
       if (cust.name && inv.customer?.name) {
         const cName = cust.name.trim().toLowerCase()
         const invName = inv.customer.name.trim().toLowerCase()
         const genericNames = ['walk-in customer', 'walk-in', 'customer', 'loyalty customer', '']
         if (!genericNames.includes(cName) && cName === invName) {
-          return true
+          const cleanInvPhone = inv.customer.phone ? inv.customer.phone.replace(/\D/g, '') : ''
+          if (!cleanInvPhone || !cleanCustomerPhone || cleanInvPhone === cleanCustomerPhone) {
+            return true
+          }
         }
       }
       return false
     })
   }
 
-  const filteredCustomers = customers.filter((c) => {
+  const filteredCustomers = allCustomers.filter((c) => {
     const q = searchQuery.trim().toLowerCase()
     const cleanDigits = q.replace(/\D/g, '')
     const cleanPhone = c.phone.replace(/\D/g, '')
@@ -166,7 +208,7 @@ export const CustomerDirectoryTable: React.FC<CustomerDirectoryTableProps> = () 
           <div className="flex items-center gap-pad-xs self-end lg:self-auto">
             <span className="font-label-sm text-label-sm text-on-surface-variant">Ledger:</span>
             <span className="p-2 font-mono-numeric-sm text-mono-numeric-sm font-semibold text-on-surface bg-surface-container px-2 py-1 rounded">
-              {customers.length} Recorded
+              {allCustomers.length} Recorded
             </span>
           </div>
         </div>
@@ -183,7 +225,7 @@ export const CustomerDirectoryTable: React.FC<CustomerDirectoryTableProps> = () 
                   : 'bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              <span className="p-2">All Customers ({customers.length})</span>
+              <span className="p-2">All Customers ({allCustomers.length})</span>
             </button>
             <button
               type="button"

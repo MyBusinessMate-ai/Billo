@@ -137,8 +137,20 @@ function MakeBillingPage() {
     }
     setItems((prev) =>
       prev.map((item) =>
-        item.productId === productId ? { ...item, quantity: qty, total: qty * item.price } : item
+        item.productId === productId
+          ? {
+              ...item,
+              quantity: qty,
+              total: Math.max(0, qty * item.price - (item.discountAmount || 0)),
+            }
+          : item
       )
+    )
+  }
+
+  const handleUpdateItem = (updatedItem: BillingItem) => {
+    setItems((prev) =>
+      prev.map((item) => (item.productId === updatedItem.productId ? updatedItem : item))
     )
   }
 
@@ -290,6 +302,7 @@ function MakeBillingPage() {
             customer={customer}
             items={items}
             onUpdateQty={handleUpdateQty}
+            onUpdateItem={handleUpdateItem}
             onRemoveItem={handleRemoveItem}
             onClearAll={handleClearAllRequest}
             onConfirmBilling={handleConfirmBilling}

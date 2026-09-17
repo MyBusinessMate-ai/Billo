@@ -38,6 +38,18 @@ export const defaultBillTemplate = {
   totalLabel: 'Total (₹)',
 }
 
+export const defaultBillingRules = {
+  enableItemGst: false,
+  defaultGstPercent: 0,
+  requireGstin: false,
+  enableItemDiscount: true,
+  enableInvoiceDiscount: true,
+  maxDiscountPercent: 50,
+  enableCustomFieldsInBilling: true,
+}
+
+export const defaultProductFields = []
+
 export const defaultSettings: UIStoreSettings = {
   businessName:
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BUSINESS_NAME) || 'Retail Store',
@@ -73,6 +85,8 @@ export const defaultSettings: UIStoreSettings = {
   themeMode: 'light',
   backgroundColor: '#F8F9FF',
   textColor: '#0B1C30',
+  productFields: [],
+  billingRules: defaultBillingRules,
 }
 
 export function mapFirestoreSettingsToUI(s: FirestoreSettings | null): UIStoreSettings {
@@ -113,6 +127,10 @@ export function mapFirestoreSettingsToUI(s: FirestoreSettings | null): UIStoreSe
     themeMode: s.themeMode || defaultSettings.themeMode,
     backgroundColor: s.backgroundColor || defaultSettings.backgroundColor,
     textColor: s.textColor || defaultSettings.textColor,
+    productFields: Array.isArray(s.productFields) ? s.productFields : [],
+    billingRules: s.billingRules
+      ? { ...defaultBillingRules, ...s.billingRules }
+      : defaultBillingRules,
   }
 }
 
@@ -147,6 +165,8 @@ export function mapUISettingsToFirestore(ui: UIStoreSettings): FirestoreSettings
     themeMode: ui.themeMode,
     backgroundColor: ui.backgroundColor,
     textColor: ui.textColor,
+    ...(ui.productFields ? { productFields: ui.productFields } : {}),
+    ...(ui.billingRules ? { billingRules: ui.billingRules } : {}),
     createdAt: { seconds: nowSeconds, nanoseconds: 0 },
     updatedAt: { seconds: nowSeconds, nanoseconds: 0 },
   }

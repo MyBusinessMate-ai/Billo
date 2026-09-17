@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import type { BillingItem } from '../../types/pos'
 import { usePOS } from '../../context/POSContext'
 import { formatINR } from '../../utils/formatters'
+import { EditLedgerItemModal } from './EditLedgerItemModal'
 
 interface CheckoutLedgerProps {
   customer?: {
@@ -13,6 +14,7 @@ interface CheckoutLedgerProps {
   }
   items: BillingItem[]
   onUpdateQty?: (productId: string, qty: number) => void
+  onUpdateItem?: (updatedItem: BillingItem) => void
   onRemoveItem: (productId: string) => void
   onClearAll: () => void
   onConfirmBilling: (paymentDetails: {
@@ -29,6 +31,8 @@ interface CheckoutLedgerProps {
 export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
   customer,
   items,
+  onUpdateQty,
+  onUpdateItem,
   onRemoveItem,
   onClearAll,
   onConfirmBilling,
@@ -42,6 +46,8 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
   const [internalNote, setInternalNote] = useState<string>('')
   const [cashTendered] = useState<number>(2000)
   const [printReceipt, setPrintReceipt] = useState<boolean>(true)
+  const [editingItem, setEditingItem] = useState<BillingItem | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false)
 
   // Reset discount & note inputs if cart is empty
   useEffect(() => {
@@ -133,6 +139,36 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
 
   const handleClearDiscount = () => {
     setDiscountValue('')
+  }
+
+  const handleEditClick = (item: BillingItem) => {
+    setEditingItem(item)
+    setIsEditModalOpen(true)
+  }
+
+  const handleSaveItemEdit = (updatedItem: BillingItem) => {
+    if (onUpdateItem) {
+      onUpdateItem(updatedItem)
+      showToast(`Updated "${updatedItem.name}"`, 'success')
+    } else if (onUpdateQty) {
+      onUpdateQty(updatedItem.productId, updatedItem.quantity)
+    }
+  }
+
+  const handleInlineQtyChange = (productId: string, currentQty: number, delta: number) => {
+    const nextQty = Math.max(1, currentQty + delta)
+    if (onUpdateQty) {
+      onUpdateQty(productId, nextQty)
+    } else if (onUpdateItem) {
+      const target = items.find((i) => i.productId === productId)
+      if (target) {
+        onUpdateItem({
+          ...target,
+          quantity: nextQty,
+          total: nextQty * target.price - (target.discountAmount || 0),
+        })
+      }
+    }
   }
 
   // Hotkeys for settlement
@@ -236,10 +272,10 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
       )}
 
       {/* Cart Items Table */}
-      <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
+      <div className="overflow-x-auto max-h-[340px] overflow-y-auto">
         {items.length === 0 ? (
           <div className="py-8 text-center text-on-surface-variant font-body-sm">
-            Cart is empty. Scan SKU or pick fast items.
+            Cart is empty. Select a product or enter custom items above.
           </div>
         ) : (
           <table className="w-full text-left">
@@ -249,55 +285,132 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
                 <th className="py-2 px-1 text-center">Qty</th>
                 <th className="py-2 px-2 text-right">Price</th>
                 <th className="py-2 px-2 text-right">Total</th>
-                <th className="py-2 px-1 text-center"></th>
+                <th className="py-2 px-1 text-center">Actions</th>
               </tr>
             </thead>
             <tbody id="cart-table-body">
-              {items.map((item) => (
-                <tr
-                  key={item.productId}
-                  className="cart-row hover:bg-surface-container-low transition-colors"
-                >
-                  <td className="py-2.5 px-2">
-                    <span className="font-body-md text-body-md text-on-surface font-medium block">
-                      {item.name}
-                    </span>
-                    <div className="flex items-center gap-1.5 font-mono-numeric-sm text-mono-numeric-sm text-on-surface-variant">
-                      {item.category &&
-                        item.category.trim().toLowerCase() !== item.name.trim().toLowerCase() && (
-                          <span>{item.category}</span>
+              {items.map((item) => {
+                const lineDiscount = item.discountAmount || 0
+                const rawLineTotal = item.quantity * item.price
+
+                return (
+                  <tr
+                    key={item.productId}
+                    className="cart-row hover:bg-surface-container-low transition-colors group"
+                  >
+                    <td className="py-2.5 px-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-body-md text-body-md text-on-surface font-medium block">
+                          {item.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleEditClick(item)}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-on-surface-variant hover:text-primary transition-opacity cursor-pointer"
+                          title="Edit line item details"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">edit</span>
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 font-mono-numeric-sm text-mono-numeric-sm text-on-surface-variant mt-0.5">
+                        {item.category &&
+                          item.category.trim().toLowerCase() !== item.name.trim().toLowerCase() && (
+                            <span className="text-[11px] bg-surface-container px-1 py-0.2 rounded">
+                              {item.category}
+                            </span>
+                          )}
+                        {item.gstPercent !== undefined && item.gstPercent > 0 && (
+                          <span className="px-1 py-0.2 text-[10px] rounded bg-secondary-container text-on-secondary-container font-mono font-medium">
+                            GST {item.gstPercent}%
+                          </span>
                         )}
-                      {item.gstPercent !== undefined && item.gstPercent > 0 && (
-                        <span className="px-1 py-0.2 text-[10px] rounded bg-surface-container font-mono text-on-surface font-medium">
-                          GST {item.gstPercent}%
+                        {lineDiscount > 0 && (
+                          <span className="px-1 py-0.2 text-[10px] rounded bg-tertiary-container text-on-tertiary-container font-mono font-medium">
+                            -₹{lineDiscount.toFixed(2)} Off
+                          </span>
+                        )}
+                        {item.customFields &&
+                          Object.entries(item.customFields).map(([k, v]) => (
+                            <span
+                              key={k}
+                              className="px-1 py-0.2 text-[10px] rounded bg-surface-container-high text-on-surface-variant font-mono"
+                            >
+                              {String(v)}
+                            </span>
+                          ))}
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-1 text-center">
+                      <div className="inline-flex items-center bg-surface-container rounded border border-outline-variant/30">
+                        <button
+                          type="button"
+                          onClick={() => handleInlineQtyChange(item.productId, item.quantity, -1)}
+                          disabled={item.quantity <= 1}
+                          className="w-5 h-6 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-l text-xs font-bold disabled:opacity-30 cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <span className="w-7 text-center font-mono-numeric-sm font-semibold text-on-surface text-xs">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleInlineQtyChange(item.productId, item.quantity, 1)}
+                          className="w-5 h-6 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-r text-xs font-bold cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-2 text-right font-mono-numeric-md text-mono-numeric-md text-on-surface-variant">
+                      ₹{item.price.toFixed(2)}
+                    </td>
+                    <td className="py-2.5 px-2 text-right font-mono-numeric-md text-mono-numeric-md text-on-surface font-semibold">
+                      ₹{item.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      {lineDiscount > 0 && (
+                        <span className="block text-[10px] text-on-surface-variant line-through font-normal">
+                          ₹{rawLineTotal.toFixed(2)}
                         </span>
                       )}
-                    </div>
-                  </td>
-                  <td className="py-2.5 px-1 text-center font-mono-numeric-md text-mono-numeric-md">
-                    {item.quantity}
-                  </td>
-                  <td className="py-2.5 px-2 text-right font-mono-numeric-md text-mono-numeric-md text-on-surface-variant">
-                    ₹{item.price.toFixed(2)}
-                  </td>
-                  <td className="py-2.5 px-2 text-right font-mono-numeric-md text-mono-numeric-md text-on-surface font-semibold">
-                    ₹{item.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="py-2.5 px-1 text-center">
-                    <button
-                      type="button"
-                      onClick={() => onRemoveItem(item.productId)}
-                      className="remove-row-btn text-on-surface-variant hover:text-error p-1 rounded-DEFAULT cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">close</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-2.5 px-1 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleEditClick(item)}
+                          className="p-1 text-on-surface-variant hover:text-primary hover:bg-surface-container rounded-DEFAULT transition-colors cursor-pointer"
+                          title="Edit Line Item"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onRemoveItem(item.productId)}
+                          className="remove-row-btn text-on-surface-variant hover:text-error hover:bg-error-container p-1 rounded-DEFAULT transition-colors cursor-pointer"
+                          title="Remove item"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">close</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}
       </div>
+
+      {/* Line Item Edit Modal */}
+      <EditLedgerItemModal
+        item={editingItem}
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setEditingItem(null)
+        }}
+        onSave={handleSaveItemEdit}
+      />
 
       {/* Financial Summary */}
       <div className="bg-surface-container-low p-pad-sm rounded-DEFAULT space-y-2 font-body-md text-body-md">
