@@ -43,9 +43,10 @@ export function mapFirestoreBillingToUI(b: FirestoreBilling): UIBillingInvoice {
     numericId: isNaN(numericPart) ? 1 : numericPart,
     customer: {
       id: b.customerId,
-      name: b.customerName || (b.customerId ? 'Customer' : 'Walk-in Customer'),
+      name: (b.customerName || (b.customerId ? 'Customer' : 'Walk-in Customer')).toUpperCase(),
       phone: b.customerPhone || '—',
-      email: b.customerEmail,
+      email: b.customerEmail ? b.customerEmail.toLowerCase() : undefined,
+      gstin: b.customerGstin ? b.customerGstin.toUpperCase() : undefined,
       isWalkIn: !b.customerId,
     },
     items: itemsMapped,
@@ -84,6 +85,7 @@ export const billingService = {
     customerName?: string
     customerPhone?: string
     customerEmail?: string
+    customerGstin?: string
     items: Array<{
       productId: string
       productName: string
@@ -155,9 +157,16 @@ export const billingService = {
         const billingDoc: FirestoreBilling = {
           billingId: generatedBillingId,
           ...(invoiceData.customerId ? { customerId: invoiceData.customerId } : {}),
-          ...(invoiceData.customerName ? { customerName: invoiceData.customerName } : {}),
+          ...(invoiceData.customerName
+            ? { customerName: invoiceData.customerName.toUpperCase() }
+            : {}),
           ...(invoiceData.customerPhone ? { customerPhone: invoiceData.customerPhone } : {}),
-          ...(invoiceData.customerEmail ? { customerEmail: invoiceData.customerEmail } : {}),
+          ...(invoiceData.customerEmail
+            ? { customerEmail: invoiceData.customerEmail.toLowerCase() }
+            : {}),
+          ...(invoiceData.customerGstin
+            ? { customerGstin: invoiceData.customerGstin.toUpperCase() }
+            : {}),
           items: firestoreItems,
           subtotal: invoiceData.subtotal,
           taxPercent: invoiceData.taxPercent,

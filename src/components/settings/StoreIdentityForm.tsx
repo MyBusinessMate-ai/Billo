@@ -8,6 +8,7 @@ interface StoreIdentityFormProps {
     storeName: string
     gstin: string
     phone: string
+    email?: string
     registeredAddress: string
     logoUrl: string
     logoName: string
@@ -202,12 +203,12 @@ export const StoreIdentityForm: React.FC<StoreIdentityFormProps> = ({ values, on
           </div>
         </div>
 
-        <div className="md:col-span-2">
+        <div>
           <label
             className="p-2 block font-label-sm text-label-sm text-on-surface font-medium mb-1"
             htmlFor="contact-input"
           >
-            Phone / Support Hotline
+            Phone Number
           </label>
           <input
             className="p-2 w-full h-button-md bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT px-pad-sm font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
@@ -215,7 +216,24 @@ export const StoreIdentityForm: React.FC<StoreIdentityFormProps> = ({ values, on
             type="text"
             value={values.phone}
             onChange={(e) => onChange('phone', e.target.value)}
-            placeholder="+91 80 4123 4567 • support@ledgerpos.store"
+            placeholder="+91 80 4123 4567"
+          />
+        </div>
+
+        <div>
+          <label
+            className="p-2 block font-label-sm text-label-sm text-on-surface font-medium mb-1"
+            htmlFor="email-input"
+          >
+            Email Address
+          </label>
+          <input
+            className="p-2 w-full h-button-md bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT px-pad-sm font-body-sm text-body-sm text-on-surface lowercase focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+            id="email-input"
+            type="email"
+            value={values.email || ''}
+            onChange={(e) => onChange('email', e.target.value.toLowerCase())}
+            placeholder="support@store.com"
           />
         </div>
 

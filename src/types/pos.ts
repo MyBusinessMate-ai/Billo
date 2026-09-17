@@ -30,8 +30,19 @@ export interface CustomProductField {
   defaultValue?: string | number | boolean
   showInBilling?: boolean
   showInReceipt?: boolean
+  billColumnPlacement?: 'separate' | 'merged' | 'hidden'
+  billTargetColumn?: 'description' | 'price' | 'quantity' | 'gst' | 'discount'
+  billColumnHeader?: string
+  textCasing?: 'uppercase' | 'lowercase' | 'normal'
+  order?: number
   description?: string
 }
+
+export type {
+  CategoryDefaultFieldSetting,
+  CategoryDefaultFieldsConfig,
+  CategoryCustomField,
+} from './schema'
 
 export interface BillingRulesConfig {
   enableItemGst: boolean // Every item has GST or not
@@ -64,6 +75,7 @@ export interface BillingItem {
   productId: string
   name: string
   category: string
+  description?: string
   price: number
   quantity: number
   total: number
@@ -72,6 +84,7 @@ export interface BillingItem {
   discountAmount?: number
   discountPercent?: number
   customFields?: Record<string, any>
+  customFieldConfigs?: import('./schema').CategoryCustomField[]
 }
 
 export type InvoiceStatus = 'completed' | 'refunded' | 'hold'
@@ -84,6 +97,7 @@ export interface BillingInvoice {
     name: string
     phone: string
     email?: string
+    gstin?: string
     isWalkIn?: boolean
   }
   items: BillingItem[]
@@ -129,6 +143,7 @@ export interface BillTemplateConfig {
   showLogo?: boolean
   showAddress?: boolean
   showPhone?: boolean
+  showEmail?: boolean
   showGstin?: boolean
   showCustomerPhone?: boolean
   showCustomerEmail?: boolean
@@ -169,6 +184,7 @@ export interface StoreSettings {
   gstin: string
   phone: string
   supportEmail: string
+  email?: string
   registeredAddress: string
   logoUrl: string
   logoName: string

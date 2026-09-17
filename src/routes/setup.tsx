@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { AppLayout } from '../components/layout/AppLayout'
-import { ProductFieldsManager } from '../components/setup/ProductFieldsManager'
+import { CategoryFieldManager } from '../components/setup/CategoryFieldManager'
 import { BillingRulesManager } from '../components/setup/BillingRulesManager'
 import { usePOS } from '../context/POSContext'
 
@@ -10,9 +10,9 @@ export const Route = createFileRoute('/setup')({
 })
 
 function SetupPage() {
-  const { settings } = usePOS()
-  const [activeTab, setActiveTab] = useState<'product_fields' | 'billing_rules' | 'profile'>(
-    'product_fields'
+  const { settings, categories } = usePOS()
+  const [activeTab, setActiveTab] = useState<'categories_fields' | 'billing_rules' | 'profile'>(
+    'categories_fields'
   )
 
   return (
@@ -30,7 +30,7 @@ function SetupPage() {
               </span>
             </div>
             <p className="font-body-md text-body-md text-on-surface-variant mt-0.5">
-              Customize dynamic product fields, GST tax models, and checkout ledger policies.
+              Customize categories, dynamic product fields, GST tax models, and checkout ledger policies.
             </p>
           </div>
         </div>
@@ -39,18 +39,18 @@ function SetupPage() {
         <div className="flex items-center gap-1.5 border-b border-outline-variant/30 pb-px">
           <button
             type="button"
-            onClick={() => setActiveTab('product_fields')}
+            onClick={() => setActiveTab('categories_fields')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-t-DEFAULT font-label-md text-label-md font-semibold transition-all border-b-2 cursor-pointer ${
-              activeTab === 'product_fields'
+              activeTab === 'categories_fields'
                 ? 'border-primary text-primary bg-surface-container-low'
                 : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low/50'
             }`}
           >
-            <span className="material-symbols-outlined text-[18px]">dynamic_form</span>
-            <span>Product Entry Fields</span>
-            {settings.productFields && settings.productFields.length > 0 && (
+            <span className="material-symbols-outlined text-[18px]">category</span>
+            <span>Categories & Product Fields</span>
+            {categories && categories.length > 0 && (
               <span className="bg-primary text-on-primary text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full">
-                {settings.productFields.length}
+                {categories.length}
               </span>
             )}
           </button>
@@ -84,7 +84,7 @@ function SetupPage() {
 
         {/* Tab Contents */}
         <div>
-          {activeTab === 'product_fields' && <ProductFieldsManager />}
+          {activeTab === 'categories_fields' && <CategoryFieldManager />}
 
           {activeTab === 'billing_rules' && <BillingRulesManager />}
 

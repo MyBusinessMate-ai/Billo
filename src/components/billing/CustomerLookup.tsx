@@ -9,6 +9,7 @@ interface CustomerLookupProps {
     name: string
     phone: string
     email?: string
+    gstin?: string
     isWalkIn?: boolean
   }
   onChange: (customer: CustomerLookupProps['customer']) => void
@@ -17,9 +18,10 @@ interface CustomerLookupProps {
 export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChange }) => {
   const { customers, selectedCustomerForBilling, setSelectedCustomerForBilling } = usePOS()
 
-  const [nameInput, setNameInput] = useState(customer.name || '')
+  const [nameInput, setNameInput] = useState((customer.name || '').toUpperCase())
   const [phoneInput, setPhoneInput] = useState(customer.phone || '')
-  const [emailInput, setEmailInput] = useState(customer.email || '')
+  const [emailInput, setEmailInput] = useState((customer.email || '').toLowerCase())
+  const [gstinInput, setGstinInput] = useState((customer.gstin || '').toUpperCase())
   const [isWalkIn, setIsWalkIn] = useState(customer.isWalkIn || false)
 
   const [nameSuggestions, setNameSuggestions] = useState<Customer[]>([])
@@ -41,19 +43,25 @@ export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChan
 
   // Sync internal state with external customer prop
   useEffect(() => {
-    if (customer.name !== nameInput) {
-      setNameInput(customer.name)
+    const formattedName = (customer.name || '').toUpperCase()
+    if (formattedName !== nameInput) {
+      setNameInput(formattedName)
     }
     if (customer.phone !== phoneInput) {
       setPhoneInput(customer.phone)
     }
-    if ((customer.email || '') !== emailInput) {
-      setEmailInput(customer.email || '')
+    const formattedEmail = (customer.email || '').toLowerCase()
+    if (formattedEmail !== emailInput) {
+      setEmailInput(formattedEmail)
+    }
+    const formattedGstin = (customer.gstin || '').toUpperCase()
+    if (formattedGstin !== gstinInput) {
+      setGstinInput(formattedGstin)
     }
     if (customer.isWalkIn !== isWalkIn) {
       setIsWalkIn(Boolean(customer.isWalkIn))
     }
-  }, [customer.name, customer.phone, customer.email, customer.isWalkIn])
+  }, [customer.name, customer.phone, customer.email, customer.gstin, customer.isWalkIn])
 
   // Sync if customer picked from another screen (e.g. Customers page)
   useEffect(() => {
@@ -61,9 +69,10 @@ export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChan
       setIsWalkIn(false)
       onChange({
         id: selectedCustomerForBilling.id,
-        name: selectedCustomerForBilling.name,
+        name: selectedCustomerForBilling.name.toUpperCase(),
         phone: selectedCustomerForBilling.phone,
-        email: selectedCustomerForBilling.email,
+        email: (selectedCustomerForBilling.email || '').toLowerCase(),
+        gstin: selectedCustomerForBilling.gstin ? selectedCustomerForBilling.gstin.toUpperCase() : undefined,
         isWalkIn: false,
       })
       setSelectedCustomerForBilling(null)
@@ -106,12 +115,13 @@ export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChan
   }, [])
 
   const handleNameChange = (val: string) => {
-    setNameInput(val)
-    onChange({ ...customer, name: val })
+    const upperVal = val.toUpperCase()
+    setNameInput(upperVal)
+    onChange({ ...customer, name: upperVal })
 
     if (isWalkIn) return
 
-    const q = val.trim().toLowerCase()
+    const q = upperVal.trim().toLowerCase()
     if (q.length >= 1) {
       const matches = customers.filter((c) => c.name.toLowerCase().includes(q))
       setNameSuggestions(matches)
@@ -147,12 +157,13 @@ export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChan
   }
 
   const handleEmailChange = (val: string) => {
-    setEmailInput(val)
-    onChange({ ...customer, email: val })
+    const lowerVal = val.toLowerCase()
+    setEmailInput(lowerVal)
+    onChange({ ...customer, email: lowerVal })
 
     if (isWalkIn) return
 
-    const q = val.trim().toLowerCase()
+    const q = lowerVal.trim()
     if (q.length >= 2) {
       const matches = customers.filter((c) => c.email && c.email.toLowerCase().includes(q))
       setEmailSuggestions(matches)
@@ -163,6 +174,12 @@ export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChan
       setIsEmailDropdownOpen(false)
       setEmailSelectedIndex(-1)
     }
+  }
+
+  const handleGstinChange = (val: string) => {
+    const upperVal = val.toUpperCase()
+    setGstinInput(upperVal)
+    onChange({ ...customer, gstin: upperVal })
   }
 
   const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -230,19 +247,26 @@ export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChan
   }
 
   const handleSelectCustomer = (selected: Customer) => {
-    setNameInput(selected.name)
+    const upperName = selected.name.toUpperCase()
+    const lowerEmail = (selected.email || '').toLowerCase()
+    const upperGstin = (selected.gstin || '').toUpperCase()
+
+    setNameInput(upperName)
     setPhoneInput(selected.phone)
-    setEmailInput(selected.email || '')
+    setEmailInput(lowerEmail)
+    setGstinInput(upperGstin)
     setIsNameDropdownOpen(false)
     setIsPhoneDropdownOpen(false)
+    setIsEmailDropdownOpen(false)
     setNameSelectedIndex(-1)
     setPhoneSelectedIndex(-1)
 
     onChange({
       id: selected.id,
-      name: selected.name,
+      name: upperName,
       phone: selected.phone,
-      email: selected.email,
+      email: lowerEmail,
+      gstin: upperGstin || undefined,
       isWalkIn: false,
     })
   }
@@ -251,27 +275,32 @@ export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChan
     setIsWalkIn(checked)
     setIsNameDropdownOpen(false)
     setIsPhoneDropdownOpen(false)
+    setIsEmailDropdownOpen(false)
 
     if (checked) {
-      setNameInput('Walk-in Customer')
+      setNameInput('WALK-IN CUSTOMER')
       setPhoneInput('—')
       setEmailInput('')
+      setGstinInput('')
       onChange({
         id: undefined,
-        name: 'Walk-in Customer',
+        name: 'WALK-IN CUSTOMER',
         phone: '—',
         email: '',
+        gstin: undefined,
         isWalkIn: true,
       })
     } else {
       setNameInput('')
       setPhoneInput('')
       setEmailInput('')
+      setGstinInput('')
       onChange({
         id: undefined,
         name: '',
         phone: '',
         email: '',
+        gstin: undefined,
         isWalkIn: false,
       })
     }
@@ -309,7 +338,7 @@ export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChan
       {/* Customer Input Fields with Direct Autocomplete */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-3" id="customer-details-inputs">
         {/* Full Name with Autocomplete */}
-        <div className="md:col-span-5 relative">
+        <div className="md:col-span-4 relative">
           <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1">
             Customer Name *
           </label>
@@ -331,9 +360,10 @@ export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChan
                   setNameSelectedIndex(matches.length > 0 ? 0 : -1)
                 }
               }}
-              placeholder="Type customer name..."
+              placeholder="TYPE CUSTOMER NAME..."
               autoComplete="off"
-              className="w-full bg-surface-container-low px-2.5 py-1.5 rounded-DEFAULT font-body-md text-body-md text-on-surface focus:outline-none disabled:opacity-40 border border-outline-variant/30 focus:border-primary/60 transition-colors"
+              style={{ textTransform: 'uppercase' }}
+              className="w-full bg-surface-container-low px-2.5 py-1.5 rounded-DEFAULT font-body-md text-body-md text-on-surface uppercase font-medium focus:outline-none disabled:opacity-40 border border-outline-variant/30 focus:border-primary/60 transition-colors"
             />
           </div>
 
@@ -375,7 +405,7 @@ export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChan
         </div>
 
         {/* Mobile Phone with Autocomplete */}
-        <div className="md:col-span-4 relative">
+        <div className="md:col-span-3 relative">
           <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1">
             Mobile Phone *
           </label>
@@ -498,7 +528,8 @@ export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChan
               }}
               placeholder="email@example.com"
               autoComplete="off"
-              className="w-full bg-surface-container-low px-2.5 py-1.5 rounded-DEFAULT font-body-md text-body-md text-on-surface focus:outline-none disabled:opacity-40 border border-outline-variant/30 focus:border-primary/60 transition-colors"
+              style={{ textTransform: 'lowercase' }}
+              className="w-full bg-surface-container-low px-2.5 py-1.5 rounded-DEFAULT font-body-md text-body-md text-on-surface lowercase focus:outline-none disabled:opacity-40 border border-outline-variant/30 focus:border-primary/60 transition-colors"
             />
           </div>
 
@@ -522,7 +553,7 @@ export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChan
                     }`}
                   >
                     <div className="truncate">
-                      <span className="font-body-sm text-body-sm block font-medium">
+                      <span className="font-body-sm text-body-sm block font-medium lowercase">
                         {item.email}
                       </span>
                       <span className="font-label-sm text-[11px] text-on-surface-variant block truncate">
@@ -534,6 +565,27 @@ export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChan
               })}
             </div>
           )}
+        </div>
+
+        {/* Customer GSTIN / Tax ID */}
+        <div className="md:col-span-2 relative">
+          <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1 font-medium">
+            Customer GSTIN
+          </label>
+          <div className="relative flex items-center">
+            <input
+              id="customer-gstin"
+              type="text"
+              disabled={isWalkIn}
+              value={gstinInput}
+              onChange={(e) => handleGstinChange(e.target.value)}
+              placeholder="e.g. 29ABCDE1234F1Z5"
+              maxLength={15}
+              autoComplete="off"
+              style={{ textTransform: 'uppercase' }}
+              className="w-full bg-surface-container-low px-2.5 py-1.5 rounded-DEFAULT font-mono text-xs text-on-surface uppercase focus:outline-none disabled:opacity-40 border border-outline-variant/30 focus:border-primary/60 transition-colors"
+            />
+          </div>
         </div>
       </div>
     </div>

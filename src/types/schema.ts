@@ -28,8 +28,9 @@ export const CustomerIdSchema = z
 export const CustomerSchema = z.object({
   customerId: CustomerIdSchema,
   name: z.string().min(1, 'Customer name is required'),
-  email: z.string().email('Invalid email address').optional(),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
   phoneNo: z.string().min(1, 'Phone number is required'),
+  gstin: z.string().optional(),
   visits: z.number().int().nonnegative().default(0),
   lastVisitAt: FirestoreTimestampSchema.optional(),
   createdAt: FirestoreTimestampSchema,
@@ -42,10 +43,58 @@ export const CategoryIdSchema = z
   .string()
   .regex(/^CAT-\d{6}$/, "Category ID must follow 'CAT-{6 DIGIT}' (e.g. CAT-000001)")
 
+export const CategoryDefaultFieldSettingSchema = z.object({
+  enabled: z.boolean().default(true),
+  required: z.boolean().default(false),
+  defaultValue: z.any().optional(),
+  label: z.string().optional(),
+})
+export type CategoryDefaultFieldSetting = z.infer<typeof CategoryDefaultFieldSettingSchema>
+
+export const CategoryDefaultFieldsConfigSchema = z.object({
+  productItem: CategoryDefaultFieldSettingSchema.default({ enabled: true, required: true }),
+  productDescription: CategoryDefaultFieldSettingSchema.default({ enabled: true, required: false }),
+  price: CategoryDefaultFieldSettingSchema.default({ enabled: true, required: true }),
+  gst: CategoryDefaultFieldSettingSchema.default({ enabled: true, required: false, defaultValue: 0 }),
+  itemCount: CategoryDefaultFieldSettingSchema.default({ enabled: true, required: true, defaultValue: 1 }),
+  discount: CategoryDefaultFieldSettingSchema.default({ enabled: true, required: false }),
+})
+export type CategoryDefaultFieldsConfig = z.infer<typeof CategoryDefaultFieldsConfigSchema>
+
+export const DEFAULT_CATEGORY_FIELDS_CONFIG: CategoryDefaultFieldsConfig = {
+  productItem: { enabled: true, required: true, label: 'Product Item' },
+  productDescription: { enabled: true, required: false, label: 'Product Description' },
+  price: { enabled: true, required: true, label: 'Price (₹)' },
+  gst: { enabled: true, required: false, defaultValue: 0, label: 'GST (%)' },
+  itemCount: { enabled: true, required: true, defaultValue: 1, label: 'Item Count' },
+  discount: { enabled: true, required: false, label: 'Discount' },
+}
+
+export const CategoryCustomFieldSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.enum(['text', 'number', 'link', 'date', 'select', 'boolean', 'textarea']),
+  required: z.boolean().optional(),
+  options: z.array(z.string()).optional(),
+  placeholder: z.string().optional(),
+  defaultValue: z.any().optional(),
+  description: z.string().optional(),
+  showInBilling: z.boolean().optional().default(true),
+  showInReceipt: z.boolean().optional().default(true),
+  billColumnPlacement: z.enum(['separate', 'merged', 'hidden']).optional().default('merged'),
+  billTargetColumn: z.enum(['description', 'price', 'quantity', 'gst', 'discount']).optional().default('description'),
+  billColumnHeader: z.string().optional(),
+  textCasing: z.enum(['uppercase', 'lowercase', 'normal']).optional().default('normal'),
+  order: z.number().optional().default(0),
+})
+export type CategoryCustomField = z.infer<typeof CategoryCustomFieldSchema>
+
 export const CategorySchema = z.object({
   categoryId: CategoryIdSchema,
   categoryName: z.string().min(1, 'Category name is required'),
   basePrice: z.number().nonnegative('Base price must be non-negative').optional(),
+  defaultFieldsConfig: CategoryDefaultFieldsConfigSchema.optional(),
+  customFields: z.array(CategoryCustomFieldSchema).optional(),
   createdAt: FirestoreTimestampSchema,
   updatedAt: FirestoreTimestampSchema,
 })
@@ -66,6 +115,7 @@ export const BillingItemSchema = z.object({
   categoryId: CategoryIdSchema.or(z.string().min(1, 'Category ID is required')),
   categoryName: z.string().min(1, 'Category name is required'),
   itemName: z.string().optional(),
+  description: z.string().optional(),
   quantity: z.number().positive('Quantity must be greater than 0'),
   unitPrice: z.number().nonnegative('Unit price must be non-negative'),
   total: z.number().nonnegative('Line total must be non-negative'),
@@ -74,6 +124,7 @@ export const BillingItemSchema = z.object({
   discountAmount: z.number().nonnegative().optional(),
   discountPercent: z.number().nonnegative().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
+  customFieldConfigs: z.array(CategoryCustomFieldSchema).optional(),
 })
 
 export type BillingItem = z.infer<typeof BillingItemSchema>
@@ -94,6 +145,7 @@ export const BillingSchema = z.object({
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
   customerEmail: z.string().optional(),
+  customerGstin: z.string().optional(),
   items: z.array(BillingItemSchema).min(1, 'Billing invoice must contain at least one item'),
   subtotal: z.number().optional(),
   taxPercent: z.number().optional(),
@@ -129,6 +181,11 @@ export const CustomProductFieldSchema = z.object({
   defaultValue: z.union([z.string(), z.number(), z.boolean()]).optional(),
   showInBilling: z.boolean().optional(),
   showInReceipt: z.boolean().optional(),
+  billColumnPlacement: z.enum(['separate', 'merged', 'hidden']).optional(),
+  billTargetColumn: z.enum(['description', 'price', 'quantity', 'gst', 'discount']).optional(),
+  billColumnHeader: z.string().optional(),
+  textCasing: z.enum(['uppercase', 'lowercase', 'normal']).optional(),
+  order: z.number().optional(),
   description: z.string().optional(),
 })
 
@@ -201,6 +258,7 @@ export const BillTemplateSchema = z.object({
   showLogo: z.boolean().optional(),
   showAddress: z.boolean().optional(),
   showPhone: z.boolean().optional(),
+  showEmail: z.boolean().optional(),
   showGstin: z.boolean().optional(),
   showCustomerPhone: z.boolean().optional(),
   showCustomerEmail: z.boolean().optional(),
@@ -232,6 +290,7 @@ export const SettingsSchema = z.object({
   logoUrl: z.string().optional(),
   taxId: z.string().optional(),
   phoneNumber: z.string().optional(),
+  email: z.string().optional(),
   standardGstPercentage: z.number().nonnegative().optional(),
   address: z.string().optional(),
   socials: SocialsSchema.optional(),

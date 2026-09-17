@@ -42,10 +42,19 @@ interface POSContextType {
 
   // Categories (Live from Firestore)
   categories: Category[]
-  addCategory: (categoryName: string, basePrice?: number) => Promise<Category>
+  addCategory: (
+    categoryName: string,
+    basePrice?: number,
+    extraData?: Partial<Category>
+  ) => Promise<Category>
   updateCategory: (
     categoryId: string,
-    data: { categoryName?: string; basePrice?: number }
+    data: Partial<Category>,
+    silent?: boolean
+  ) => Promise<void>
+  copyCategoryFields: (
+    sourceCategoryId: string,
+    targetCategoryId: string
   ) => Promise<void>
   addBulkCategories: (
     categoryNames: Array<string | { categoryName: string; basePrice?: number }>
@@ -323,9 +332,13 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('Settings reset to default', 'info')
   }
 
-  const addCategory = async (categoryName: string, basePrice?: number) => {
+  const addCategory = async (
+    categoryName: string,
+    basePrice?: number,
+    extraData?: Partial<Category>
+  ) => {
     try {
-      const created = await categoryService.createCategory(categoryName, basePrice)
+      const created = await categoryService.createCategory(categoryName, basePrice, extraData)
       setCategories((prev) => {
         if (
           prev.some(
@@ -349,7 +362,8 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateCategory = async (
     categoryId: string,
-    data: { categoryName?: string; basePrice?: number }
+    data: Partial<Category>,
+    silent?: boolean
   ) => {
     try {
       await categoryService.updateCategory(categoryId, data)
@@ -358,6 +372,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (c.categoryId === categoryId) {
             return {
               ...c,
+              ...data,
               ...(data.categoryName !== undefined ? { categoryName: data.categoryName } : {}),
               ...(data.basePrice !== undefined ? { basePrice: data.basePrice } : {}),
             }
@@ -365,10 +380,35 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return c
         })
       )
-      showToast('Category updated successfully', 'success')
+      if (!silent) {
+        showToast('Category updated successfully', 'success')
+      }
     } catch (err) {
       console.error('[POSContext] updateCategory error:', err)
       showToast('Failed to update category', 'error')
+      throw err
+    }
+  }
+
+  const copyCategoryFields = async (sourceCategoryId: string, targetCategoryId: string) => {
+    try {
+      const result = await categoryService.copyCategoryFields(sourceCategoryId, targetCategoryId)
+      setCategories((prev) =>
+        prev.map((c) => {
+          if (c.categoryId === targetCategoryId) {
+            return {
+              ...c,
+              defaultFieldsConfig: result.defaultFieldsConfig,
+              customFields: result.customFields,
+            }
+          }
+          return c
+        })
+      )
+      showToast('Fields copied successfully', 'success')
+    } catch (err) {
+      console.error('[POSContext] copyCategoryFields error:', err)
+      showToast('Failed to copy fields', 'error')
       throw err
     }
   }
@@ -418,16 +458,23 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addCustomer = (data: Partial<Customer> & { name: string; phone: string }) => {
     const timeOnly = currentTime ? currentTime.split(' ')[1] : '12:00:00'
     const cleanPhone = sanitizePhone(data.phone)
+    const upperName = data.name.trim().toUpperCase()
+    const lowerEmail = data.email
+      ? data.email.trim().toLowerCase()
+      : `${upperName.toLowerCase().replace(/\s+/g, '.')}@example.com`
+    const upperGstin = data.gstin ? data.gstin.trim().toUpperCase() : undefined
+
     const newCust: Customer = {
       id: `CUS-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`,
-      email: data.email || `${data.name.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+      email: lowerEmail,
+      gstin: upperGstin,
       visits: 1,
       totalSpend: 0,
       lastVisit: `${currentDate || '2026-09-08'} ${timeOnly}`,
       preferredRail: 'UPI',
       isNew: true,
       ...data,
-      name: data.name,
+      name: upperName,
       phone: cleanPhone || data.phone,
     }
 
@@ -436,9 +483,10 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Orchestrate with customerService asynchronously
     customerService
       .registerCustomer({
-        name: data.name,
+        name: upperName,
         phone: data.phone,
-        email: data.email,
+        email: lowerEmail,
+        gstin: upperGstin,
       })
       .then((created) => {
         setCustomers((prev) => prev.map((c) => (c.id === newCust.id ? created : c)))
@@ -570,6 +618,10 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const timeStamp = `${currentDate || '2026-09-08'} ${currentTime ? currentTime.split(' ')[1] : '12:00:00'}`
 
+      const normName = invoiceData.customer.name.trim().toUpperCase()
+      const normEmail = invoiceData.customer.email ? invoiceData.customer.email.trim().toLowerCase() : undefined
+      const normGstin = invoiceData.customer.gstin ? invoiceData.customer.gstin.trim().toUpperCase() : undefined
+
       if (existing) {
         assignedCustomerId = existing.id
         setCustomers((prev) =>
@@ -577,8 +629,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (c.id === existing.id) {
               return {
                 ...c,
-                name: invoiceData.customer.name || c.name,
-                email: invoiceData.customer.email || c.email,
+                name: normName || c.name,
+                email: normEmail || c.email,
+                gstin: normGstin || c.gstin,
                 visits: (c.visits || 0) + 1,
                 totalSpend: (c.totalSpend || 0) + invoiceData.netTotal,
                 lastVisit: timeStamp,
@@ -589,9 +642,10 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         )
       } else {
         const createdCust = addCustomer({
-          name: invoiceData.customer.name,
+          name: normName,
           phone: invoiceData.customer.phone || '—',
-          email: invoiceData.customer.email,
+          email: normEmail,
+          gstin: normGstin,
           visits: 1,
           totalSpend: invoiceData.netTotal,
           lastVisit: timeStamp,
@@ -605,14 +659,42 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
+    // Normalize item custom fields based on category configuration
+    const normalizedItems = invoiceData.items.map((it) => {
+      if (!it.customFields) return it
+      const catObj = categories.find(
+        (c) => c.categoryName.toLowerCase() === (it.category || '').toLowerCase()
+      )
+      const cfConfigs = it.customFieldConfigs || catObj?.customFields || []
+      const mappedFields: Record<string, any> = {}
+      for (const [k, v] of Object.entries(it.customFields)) {
+        const cfg = cfConfigs.find((c) => c.id === k)
+        if (typeof v === 'string' && cfg?.textCasing === 'uppercase') {
+          mappedFields[k] = v.toUpperCase()
+        } else if (typeof v === 'string' && cfg?.textCasing === 'lowercase') {
+          mappedFields[k] = v.toLowerCase()
+        } else {
+          mappedFields[k] = v
+        }
+      }
+      return {
+        ...it,
+        customFields: mappedFields,
+      }
+    })
+
     const resolvedCustomer = {
       ...invoiceData.customer,
+      name: (invoiceData.customer.name || 'Walk-in Customer').toUpperCase(),
+      email: invoiceData.customer.email ? invoiceData.customer.email.toLowerCase() : undefined,
+      gstin: invoiceData.customer.gstin ? invoiceData.customer.gstin.toUpperCase() : undefined,
       id: assignedCustomerId,
     }
 
     const invoiceWithCustomer = {
       ...newInvoice,
       customer: resolvedCustomer,
+      items: normalizedItems,
     }
 
     setInvoices((prev) => [invoiceWithCustomer, ...prev])
@@ -627,10 +709,11 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     billingService
       .createInvoice({
         customerId: assignedCustomerId,
-        customerName: invoiceData.customer.name,
-        customerPhone: invoiceData.customer.phone,
-        customerEmail: invoiceData.customer.email,
-        items: invoiceData.items.map((it) => ({
+        customerName: resolvedCustomer.name,
+        customerPhone: resolvedCustomer.phone,
+        customerEmail: resolvedCustomer.email,
+        customerGstin: resolvedCustomer.gstin,
+        items: normalizedItems.map((it) => ({
           productId: it.productId,
           productName: it.name,
           categoryId: findCatId(it.category || 'General'),
@@ -778,6 +861,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         categories,
         addCategory,
         updateCategory,
+        copyCategoryFields,
         addBulkCategories,
         deleteCategory,
         isCategoryDrawerOpen,

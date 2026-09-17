@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import type { BillingItem } from '../../types/pos'
 import { usePOS } from '../../context/POSContext'
-import { formatINR } from '../../utils/formatters'
+import { formatINR, applyTextCasing } from '../../utils/formatters'
 import { EditLedgerItemModal } from './EditLedgerItemModal'
 
 interface CheckoutLedgerProps {
@@ -10,6 +10,7 @@ interface CheckoutLedgerProps {
     name: string
     phone: string
     email?: string
+    gstin?: string
     isWalkIn?: boolean
   }
   items: BillingItem[]
@@ -26,6 +27,12 @@ interface CheckoutLedgerProps {
     printReceipt: boolean
     internalNote?: string
   }) => void
+  onDiscountChange?: (discount: {
+    discountAmount: number
+    discountCode?: string
+    discountType: 'percent' | 'flat'
+    discountValue: string
+  }) => void
 }
 
 export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
@@ -36,6 +43,7 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
   onRemoveItem,
   onClearAll,
   onConfirmBilling,
+  onDiscountChange,
 }) => {
   const { settings, invoices, customers, showToast, nextInvoiceSequence } = usePOS()
 
@@ -136,6 +144,26 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
 
   const rawNetPayable = Math.max(0, grossSubtotal + taxAmount - discountAmount)
   const netPayable = Math.round(rawNetPayable)
+
+  const totalGross = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const totalItemDiscounts = items.reduce((sum, item) => sum + (item.discountAmount || 0), 0)
+
+  const lastReportedDiscountRef = useRef<{ amount: number; code?: string } | null>(null)
+
+  // Notify parent of discount changes for live previews & settlement (guarded against redundant calls)
+  useEffect(() => {
+    if (!onDiscountChange) return
+    const prev = lastReportedDiscountRef.current
+    if (!prev || prev.amount !== discountAmount || prev.code !== discountCode) {
+      lastReportedDiscountRef.current = { amount: discountAmount, code: discountCode }
+      onDiscountChange({
+        discountAmount,
+        discountCode,
+        discountType,
+        discountValue,
+      })
+    }
+  }, [discountAmount, discountCode, discountType, discountValue, onDiscountChange])
 
   const handleClearDiscount = () => {
     setDiscountValue('')
@@ -299,19 +327,14 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
                     className="cart-row hover:bg-surface-container-low transition-colors group"
                   >
                     <td className="py-2.5 px-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-body-md text-body-md text-on-surface font-medium block">
-                          {item.name}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleEditClick(item)}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-on-surface-variant hover:text-primary transition-opacity cursor-pointer"
-                          title="Edit line item details"
-                        >
-                          <span className="material-symbols-outlined text-[14px]">edit</span>
-                        </button>
-                      </div>
+                      <span className="font-body-md text-body-md text-on-surface font-medium block">
+                        {item.name}
+                      </span>
+                      {item.description && (
+                        <div className="text-[11px] text-on-surface-variant/80 italic mt-0.5 line-clamp-2">
+                          {item.description}
+                        </div>
+                      )}
                       <div className="flex flex-wrap items-center gap-1.5 font-mono-numeric-sm text-mono-numeric-sm text-on-surface-variant mt-0.5">
                         {item.category &&
                           item.category.trim().toLowerCase() !== item.name.trim().toLowerCase() && (
@@ -330,14 +353,19 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
                           </span>
                         )}
                         {item.customFields &&
-                          Object.entries(item.customFields).map(([k, v]) => (
-                            <span
-                              key={k}
-                              className="px-1 py-0.2 text-[10px] rounded bg-surface-container-high text-on-surface-variant font-mono"
-                            >
-                              {String(v)}
-                            </span>
-                          ))}
+                          Object.entries(item.customFields).map(([k, v]) => {
+                            const config = item.customFieldConfigs?.find((c) => c.id === k)
+                            const valStr = applyTextCasing(v, config?.textCasing)
+                            const label = config ? `${config.name}: ${valStr}` : valStr
+                            return (
+                              <span
+                                key={k}
+                                className="px-1.5 py-0.2 text-[10px] rounded bg-surface-container-high text-on-surface-variant font-mono"
+                              >
+                                {label}
+                              </span>
+                            )
+                          })}
                       </div>
                     </td>
                     <td className="py-2.5 px-1 text-center">
@@ -412,21 +440,47 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
         onSave={handleSaveItemEdit}
       />
 
-      {/* Financial Summary */}
+      {/* Detailed Financial Breakdown */}
       <div className="bg-surface-container-low p-pad-sm rounded-DEFAULT space-y-2 font-body-md text-body-md">
-        <div className="flex items-center justify-between text-on-surface-variant">
-          <span className="font-label-md text-label-md">Gross Subtotal</span>
-          <span
-            className="font-mono-numeric-md text-mono-numeric-md text-on-surface font-medium"
-            id="subtotal-val"
-          >
-            ₹
-            {grossSubtotal.toLocaleString('en-IN', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </span>
-        </div>
+        {totalItemDiscounts > 0 ? (
+          <>
+            <div className="flex items-center justify-between text-on-surface-variant">
+              <span className="font-label-md text-label-md">Gross Amount</span>
+              <span className="font-mono-numeric-md text-mono-numeric-md text-on-surface font-medium">
+                ₹{totalGross.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-emerald-700">
+              <span className="font-label-md text-label-md font-medium">Item Discounts</span>
+              <span className="font-mono-numeric-md text-mono-numeric-md font-semibold">
+                -₹{totalItemDiscounts.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-on-surface-variant">
+              <span className="font-label-md text-label-md">Taxable Subtotal</span>
+              <span
+                className="font-mono-numeric-md text-mono-numeric-md text-on-surface font-medium"
+                id="subtotal-val"
+              >
+                ₹{grossSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-between text-on-surface-variant">
+            <span className="font-label-md text-label-md">Gross Subtotal</span>
+            <span
+              className="font-mono-numeric-md text-mono-numeric-md text-on-surface font-medium"
+              id="subtotal-val"
+            >
+              ₹
+              {grossSubtotal.toLocaleString('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </div>
+        )}
 
         <div className="flex items-center justify-between text-on-surface-variant">
           <div className="flex items-center gap-1.5">

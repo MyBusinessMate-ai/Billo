@@ -6,7 +6,7 @@ import { usePOS } from '../../context/POSContext'
 import { BrandLogo } from '../common/BrandLogo'
 import { HorizontalInvoice } from './HorizontalInvoice'
 import { printElementContent } from '../../utils/print'
-import { generateUPIUrl } from '../../utils/formatters'
+import { generateUPIUrl, applyTextCasing } from '../../utils/formatters'
 
 interface ThermalReceiptModalProps {
   invoice: BillingInvoice | null
@@ -64,29 +64,49 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
 
   const hasGstin = Boolean(settings.gstin && settings.gstin.trim() !== '' && settings.gstin !== '0')
   const hasPhone = Boolean(settings.phone && settings.phone.trim() !== '' && settings.phone !== '—')
+  const storeEmail = (settings as any).email || settings.supportEmail || ''
+  const hasEmail = Boolean(tmpl.showEmail !== false && storeEmail && storeEmail.trim() !== '')
   const hasAddress = Boolean(settings.registeredAddress && settings.registeredAddress.trim() !== '')
+  const clientEmail =
+    invoice.customer.email &&
+    invoice.customer.email.trim() !== '' &&
+    invoice.customer.email !== '-' &&
+    invoice.customer.email !== '—'
+      ? invoice.customer.email.trim()
+      : null
   const fallbackTaxPercent = invoice.taxPercent ?? settings.taxRatePercent ?? 0
-  const hasItemGst = invoice.items?.some((item) => item.gstPercent !== undefined)
+  const hasItemGst = invoice.items?.some((item) => item.gstPercent !== undefined && item.gstPercent > 0)
 
-  const computedSubtotal =
+  const totalGross = invoice.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const totalItemDiscounts = invoice.items.reduce((sum, item) => sum + (item.discountAmount || 0), 0)
+  const taxableSubtotal =
     invoice.items && invoice.items.length > 0
-      ? invoice.items.reduce((sum, item) => sum + (item.total ?? item.price * item.quantity), 0)
+      ? invoice.items.reduce((sum, item) => {
+          const lineGross = item.price * item.quantity
+          const lineDisc = item.discountAmount || 0
+          return sum + (typeof item.total === 'number' ? item.total : Math.max(0, lineGross - lineDisc))
+        }, 0)
       : invoice.subtotal || 0
 
   const computedTaxAmount =
     invoice.items && invoice.items.length > 0
       ? invoice.items.reduce((sum, item) => {
+          const lineGross = item.price * item.quantity
+          const lineDisc = item.discountAmount || 0
+          const lineTaxable = typeof item.total === 'number' ? item.total : Math.max(0, lineGross - lineDisc)
           const itemTaxRate = item.gstPercent !== undefined ? item.gstPercent : fallbackTaxPercent
-          return sum + ((item.total ?? item.price * item.quantity) * itemTaxRate) / 100
+          return sum + (lineTaxable * itemTaxRate) / 100
         }, 0)
       : invoice.taxAmount || 0
 
-  const taxAmount = invoice.taxAmount > 0 ? invoice.taxAmount : computedTaxAmount
+  const taxAmount = typeof invoice.taxAmount === 'number' ? invoice.taxAmount : computedTaxAmount
   const hasTax = taxAmount > 0
-  const discountAmount = invoice.discountAmount || 0
-  const hasDiscount = discountAmount > 0
+  const billDiscount = invoice.discountAmount || 0
+  const hasItemDiscounts = totalItemDiscounts > 0
+  const hasBillDiscount = billDiscount > 0
+  const totalAllDiscounts = totalItemDiscounts + billDiscount
   const netTotal =
-    invoice.netTotal || Math.round(Math.max(0, computedSubtotal + taxAmount - discountAmount))
+    invoice.netTotal || Math.round(Math.max(0, taxableSubtotal + taxAmount - billDiscount))
 
   const isUpiPayment = Boolean(
     invoice.paymentMethod?.toLowerCase().includes('upi') ||
@@ -152,7 +172,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     })
     if (success) {
       showToast(
-        `Sent ${format === 'thermal' ? '80mm Thermal Receipt' : 'A4 Tax Invoice'} to printer`,
+        `Sent ${format === 'thermal' ? '80mm Thermal Receipt' : 'Commercial Invoice (Vertical)'} to printer`,
         'success'
       )
     } else {
@@ -222,7 +242,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                 <div className="text-center pb-4 border-b border-dashed border-slate-300">
                   {tmpl.showLogo !== false && (
                     <div className="flex justify-center mb-2">
-                      <BrandLogo size="md" showText={false} />
+                      <BrandLogo size="lg" showText={false} />
                     </div>
                   )}
                   <h4 className="font-bold text-sm uppercase tracking-tight">
@@ -240,9 +260,14 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                   )}
                   {(hasGstin || hasPhone) && (
                     <p className="text-[10px] text-slate-500 mt-1">
-                      {hasGstin && <span>GST: {settings.gstin}</span>}
+                      {hasGstin && <span>GST: {settings.gstin.toUpperCase()}</span>}
                       {hasGstin && hasPhone && <span> | </span>}
                       {hasPhone && <span>Ph: {settings.phone}</span>}
+                    </p>
+                  )}
+                  {hasEmail && (
+                    <p className="text-[10px] text-slate-500 lowercase mt-0.5">
+                      <span>Email: {storeEmail.toLowerCase()}</span>
                     </p>
                   )}
                 </div>
@@ -264,8 +289,8 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                   <div className="pt-1.5 border-t border-dotted border-slate-200 text-left space-y-0.5">
                     <div>
                       <span className="text-slate-500">Customer:</span>{' '}
-                      <span className="font-semibold text-slate-950">
-                        {invoice.customer.name || 'Walk-in Customer'}
+                      <span className="font-semibold text-slate-950 uppercase">
+                        {(invoice.customer.name || 'Walk-in Customer').toUpperCase()}
                       </span>
                     </div>
                     {tmpl.showCustomerPhone !== false && (
@@ -278,10 +303,20 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                         </span>
                       </div>
                     )}
-                    {tmpl.showCustomerEmail !== false && (
+                    {tmpl.showCustomerEmail !== false && clientEmail && (
                       <div>
                         <span className="text-slate-500">Email:</span>{' '}
-                        <span>{invoice.customer.email ? invoice.customer.email : '-'}</span>
+                        <span className="lowercase">
+                          {clientEmail.toLowerCase()}
+                        </span>
+                      </div>
+                    )}
+                    {invoice.customer.gstin && (
+                      <div>
+                        <span className="text-slate-500">GSTIN:</span>{' '}
+                        <span className="font-mono uppercase font-semibold">
+                          {invoice.customer.gstin.toUpperCase()}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -300,11 +335,30 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                       <div key={idx} className="grid grid-cols-12 items-center">
                         <span className="col-span-6 truncate font-medium">
                           {item.name}
-                          {item.gstPercent !== undefined && (
+                          {item.discountAmount !== undefined && item.discountAmount > 0 && (
+                            <span className="text-[9px] text-emerald-700 font-semibold ml-1">
+                              (-₹{item.discountAmount})
+                            </span>
+                          )}
+                          {item.gstPercent !== undefined && item.gstPercent > 0 && (
                             <span className="text-[9px] text-slate-500 ml-1">
                               ({item.gstPercent}%)
                             </span>
                           )}
+                          {item.customFields &&
+                            Object.entries(item.customFields).map(([k, v]) => {
+                              const cfg = item.customFieldConfigs?.find((c) => c.id === k)
+                              if (
+                                cfg?.showInReceipt === false ||
+                                cfg?.billColumnPlacement === 'hidden'
+                              )
+                                return null
+                              return (
+                                <span key={k} className="block text-[9px] text-slate-500 font-sans">
+                                  {cfg ? cfg.name : k}: {applyTextCasing(v, cfg?.textCasing)}
+                                </span>
+                              )
+                            })}
                         </span>
                         <span className="col-span-2 text-center text-slate-600">
                           {item.quantity}
@@ -322,10 +376,27 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
 
                 {/* Subtotals & Taxes */}
                 <div className="py-3 border-b border-dashed border-slate-300 flex flex-col gap-1 text-[11px]">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Subtotal:</span>
-                    <span>₹{computedSubtotal.toFixed(2)}</span>
-                  </div>
+                  {hasItemDiscounts ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Gross Subtotal:</span>
+                        <span>₹{totalGross.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-700">
+                        <span>Item Discounts:</span>
+                        <span>-₹{totalItemDiscounts.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Taxable Subtotal:</span>
+                        <span>₹{taxableSubtotal.toFixed(2)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Subtotal:</span>
+                      <span>₹{taxableSubtotal.toFixed(2)}</span>
+                    </div>
+                  )}
 
                   {hasTax && (
                     <div className="flex justify-between">
@@ -336,10 +407,17 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                     </div>
                   )}
 
-                  {hasDiscount && (
+                  {hasBillDiscount && (
                     <div className="flex justify-between text-emerald-700 font-semibold">
-                      <span>Discount ({invoice.discountCode || 'PROMO'}):</span>
-                      <span>-₹{discountAmount.toFixed(2)}</span>
+                      <span>Bill Discount {invoice.discountCode ? `(${invoice.discountCode})` : ''}:</span>
+                      <span>-₹{billDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  {totalAllDiscounts > 0 && (
+                    <div className="flex justify-between text-[10px] text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded font-medium">
+                      <span>Total Savings:</span>
+                      <span>₹{totalAllDiscounts.toFixed(2)}</span>
                     </div>
                   )}
 
@@ -367,6 +445,23 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                         {line}
                       </p>
                     ))}
+                  </div>
+                )}
+
+                {/* Optional Authorized Signatory / Stamp Space */}
+                {tmpl.showAuthorizedSignatory !== false && (
+                  <div className="py-2.5 border-b border-dashed border-slate-300 text-center space-y-1.5">
+                    <span className="text-[9px] font-bold uppercase text-slate-700 block">
+                      {tmpl.signatoryText || `For ${settings.storeName || settings.businessName || 'Store'}`}
+                    </span>
+                    <div className="h-10 border border-dashed border-slate-200 rounded flex items-center justify-center text-[9px] text-slate-300">
+                      Signature / Stamp
+                    </div>
+                    <div className="w-36 border-t border-slate-400 mx-auto pt-0.5">
+                      <span className="text-[9px] font-bold text-slate-800 uppercase block">
+                        {`Authorized Signatory ${settings.businessName || settings.storeName || ''}`.trim()}
+                      </span>
+                    </div>
                   </div>
                 )}
 
@@ -411,7 +506,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                           includeMargin={false}
                         />
                       </div>
-                      <p className="text-[9px] text-slate-500 max-w-[240px] truncate font-mono">
+                      <p className="text-[9px] text-slate-500 max-w-60 truncate font-mono">
                         {dynamicQr.url}
                       </p>
                     </div>

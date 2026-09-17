@@ -4,7 +4,7 @@
  */
 
 export interface PrintOptions {
-  format?: 'thermal' | 'horizontal'
+  format?: 'thermal' | 'horizontal' | 'vertical' | 'a4'
   title?: string
 }
 
@@ -82,14 +82,15 @@ export function printElementContent(elementId: string, options: PrintOptions = {
     }
   `
 
-  const horizontalStyles = `
+  const verticalStyles = `
     @page {
-      size: 11in 8.5in;
-      margin: 0.3in 0.4in;
+      size: 8.5in 11in;
+      margin: 0.4in 0.4in;
     }
     html, body {
       width: 100%;
-      max-width: 11in;
+      height: 100%;
+      max-width: 8.5in;
       margin: 0 auto;
       padding: 0;
       background: #ffffff !important;
@@ -110,16 +111,29 @@ export function printElementContent(elementId: string, options: PrintOptions = {
       width: 100%;
       border-collapse: collapse;
     }
+    #print-root {
+      height: 100%;
+      min-height: 10.15in;
+      display: flex;
+      flex-direction: column;
+    }
     #printable-horizontal-invoice {
       border: 2px solid #000000 !important;
       box-shadow: none !important;
-      max-width: 10.2in !important;
+      max-width: 7.7in !important;
       width: 100% !important;
+      height: 10.15in !important;
+      min-height: 10.15in !important;
+      box-sizing: border-box !important;
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: space-between !important;
       margin: 0 auto !important;
+      page-break-inside: avoid !important;
     }
   `
 
-  const styles = format === 'thermal' ? thermalStyles : horizontalStyles
+  const styles = format === 'thermal' ? thermalStyles : verticalStyles
 
   // Grab active stylesheets for Tailwind / Geist font classes
   const stylesTags = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))

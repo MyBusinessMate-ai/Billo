@@ -13,6 +13,7 @@ export const defaultBillTemplate = {
   showLogo: true,
   showAddress: true,
   showPhone: true,
+  showEmail: true,
   showGstin: true,
   showCustomerPhone: true,
   showCustomerEmail: true,
@@ -58,6 +59,7 @@ export const defaultSettings: UIStoreSettings = {
   outletCode: 'POS-01',
   gstin: '',
   phone: '',
+  email: '',
   supportEmail: '',
   registeredAddress: '',
   logoUrl: '',
@@ -99,6 +101,8 @@ export function mapFirestoreSettingsToUI(s: FirestoreSettings | null): UIStoreSe
     logoUrl: s.logoUrl || '',
     gstin: s.taxId !== undefined ? (s.taxId === '0' ? '' : s.taxId) : defaultSettings.gstin || '',
     phone: s.phoneNumber !== undefined ? s.phoneNumber : defaultSettings.phone,
+    email: s.email !== undefined ? s.email : defaultSettings.email,
+    supportEmail: s.email || defaultSettings.supportEmail,
     registeredAddress: s.address !== undefined ? s.address : defaultSettings.registeredAddress,
     taxRatePercent:
       s.standardGstPercentage !== undefined
@@ -141,6 +145,7 @@ export function mapUISettingsToFirestore(ui: UIStoreSettings): FirestoreSettings
     logoUrl: ui.logoUrl ?? '',
     taxId: ui.gstin ?? '',
     phoneNumber: ui.phone ?? '',
+    email: ui.email ?? ui.supportEmail ?? '',
     standardGstPercentage: ui.taxRatePercent,
     address: ui.registeredAddress ?? '',
     socials: {

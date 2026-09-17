@@ -72,6 +72,7 @@ export const BillTemplateCustomizer: React.FC<BillTemplateCustomizerProps> = ({
     showLogo: true,
     showAddress: true,
     showPhone: true,
+    showEmail: true,
     showGstin: true,
     showCustomerPhone: true,
     showCustomerEmail: true,
@@ -119,8 +120,8 @@ export const BillTemplateCustomizer: React.FC<BillTemplateCustomizerProps> = ({
               Bill & Receipt Field Customizer
             </h2>
             <p className="font-body-sm text-body-sm text-on-surface-variant text-[11px] mt-0.5">
-              Customize field titles, table columns, and document disclaimers for Thermal & 11" ×
-              8.5" bills.
+              Customize field titles, table columns, and document disclaimers for Thermal & Full-Page
+              Commercial Invoices.
             </p>
           </div>
         </div>
@@ -134,7 +135,7 @@ export const BillTemplateCustomizer: React.FC<BillTemplateCustomizerProps> = ({
               visibility
             </span>
             <span>
-              Preview {settings.invoiceFormat === 'a4' ? '11" × 8.5" Invoice' : 'Thermal Bill'}{' '}
+              Preview {settings.invoiceFormat === 'a4' ? 'Commercial Invoice (Vertical)' : 'Thermal Bill'}{' '}
               Layout
             </span>
           </button>
@@ -198,10 +199,10 @@ export const BillTemplateCustomizer: React.FC<BillTemplateCustomizerProps> = ({
               </span>
               <div className="min-w-0">
                 <span className="font-label-md text-label-md font-semibold text-on-surface block leading-tight">
-                  11" × 8.5" Commercial Invoice
+                  Commercial Invoice (Letter / A4 Vertical)
                 </span>
                 <span className="font-body-sm text-[11px] text-on-surface-variant truncate block">
-                  Full-sheet horizontal commercial tax invoice
+                  Full-page vertical commercial tax invoice (8.5" × 11" / A4)
                 </span>
               </div>
             </div>
@@ -259,6 +260,15 @@ export const BillTemplateCustomizer: React.FC<BillTemplateCustomizerProps> = ({
                 className="accent-primary rounded cursor-pointer"
               />
               <span className="font-label-sm text-label-sm">Show Phone No</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer text-on-surface select-none">
+              <input
+                type="checkbox"
+                checked={template.showEmail !== false}
+                onChange={(e) => updateTmpl('showEmail', e.target.checked)}
+                className="accent-primary rounded cursor-pointer"
+              />
+              <span className="font-label-sm text-label-sm">Show Store Email</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer text-on-surface select-none">
               <input
@@ -386,11 +396,11 @@ export const BillTemplateCustomizer: React.FC<BillTemplateCustomizerProps> = ({
           3. Terms & Conditions & Document Disclaimers
         </span>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-pad-md">
-          {/* Terms & Conditions */}
+          {/* Terms & Conditions (Bottom Left of Bill) */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <label className="font-label-sm text-label-sm text-on-surface-variant">
-                Terms & Conditions
+              <label className="font-label-sm text-label-sm text-on-surface-variant font-medium">
+                Terms & Conditions (Bottom Left)
               </label>
               <label className="flex items-center gap-1.5 text-[11px] cursor-pointer text-on-surface font-medium select-none">
                 <input
@@ -403,19 +413,50 @@ export const BillTemplateCustomizer: React.FC<BillTemplateCustomizerProps> = ({
               </label>
             </div>
             <textarea
-              rows={3}
+              rows={4}
               value={template.termsText || ''}
               onChange={(e) => updateTmpl('termsText', e.target.value)}
               placeholder="1. Goods once sold can be exchanged within 7 days with original invoice.&#10;2. Warranty / guarantee as per manufacturer policy."
               className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT p-2.5 text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs resize-none font-sans leading-relaxed"
             />
+            <span className="text-[10px] text-on-surface-variant block">
+              Displayed exclusively in the bottom-left area of the bill.
+            </span>
           </div>
 
-          {/* Footer Notice & Additional Settings */}
+          {/* Authorized Signature & Stamp (Bottom Right of Bill) */}
           <div className="space-y-3">
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="font-label-sm text-label-sm text-on-surface-variant">
+                <label className="font-label-sm text-label-sm text-on-surface-variant font-medium">
+                  Authorized Signature & Stamp (Bottom Right)
+                </label>
+                <label className="flex items-center gap-1.5 text-[11px] cursor-pointer text-on-surface font-medium select-none">
+                  <input
+                    type="checkbox"
+                    checked={template.showAuthorizedSignatory !== false}
+                    onChange={(e) => updateTmpl('showAuthorizedSignatory', e.target.checked)}
+                    className="accent-primary rounded cursor-pointer"
+                  />
+                  <span>Include on Bill</span>
+                </label>
+              </div>
+              <input
+                type="text"
+                value={template.signatoryText ?? `For ${settings.storeName || settings.businessName || 'Store Outlet'}`}
+                onChange={(e) => updateTmpl('signatoryText', e.target.value)}
+                placeholder={`For ${settings.storeName || settings.businessName || 'Store Outlet'}`}
+                className="w-full p-2 px-3 bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs"
+              />
+              <span className="text-[10px] text-on-surface-variant block mt-0.5">
+                Creates dedicated signature & rubber stamp space on the bottom right of the bill.
+              </span>
+            </div>
+
+            {/* Footer Notice & Additional Settings */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="font-label-sm text-label-sm text-on-surface-variant font-medium">
                   Footer Greeting Notice
                 </label>
                 <label className="flex items-center gap-1.5 text-[11px] cursor-pointer text-on-surface font-medium select-none">

@@ -24,7 +24,11 @@ export const categoryService = {
     return fetchCategoryById(categoryId)
   },
 
-  async createCategory(categoryName: string, basePrice?: number): Promise<Category> {
+  async createCategory(
+    categoryName: string,
+    basePrice?: number,
+    extraData?: Partial<Category>
+  ): Promise<Category> {
     const trimmed = categoryName.trim()
     if (!trimmed) {
       throw new Error('Category name is required')
@@ -47,6 +51,8 @@ export const categoryService = {
       categoryId,
       categoryName: trimmed,
       ...(typeof basePrice === 'number' && !isNaN(basePrice) ? { basePrice } : {}),
+      ...(extraData?.defaultFieldsConfig ? { defaultFieldsConfig: extraData.defaultFieldsConfig } : {}),
+      ...(extraData?.customFields ? { customFields: extraData.customFields } : {}),
       createdAt: { seconds: nowSeconds, nanoseconds: 0 },
       updatedAt: { seconds: nowSeconds, nanoseconds: 0 },
     }
@@ -60,7 +66,7 @@ export const categoryService = {
 
   async updateCategory(
     categoryId: string,
-    data: { categoryName?: string; basePrice?: number }
+    data: Partial<Category>
   ): Promise<void> {
     if (db) {
       const payload: Partial<Category> = {}
@@ -71,7 +77,38 @@ export const categoryService = {
         payload.basePrice =
           typeof data.basePrice === 'number' && !isNaN(data.basePrice) ? data.basePrice : undefined
       }
+      if (data.defaultFieldsConfig !== undefined) {
+        payload.defaultFieldsConfig = data.defaultFieldsConfig
+      }
+      if (data.customFields !== undefined) {
+        payload.customFields = data.customFields
+      }
       await updateCategoryDoc(categoryId, payload)
+    }
+  },
+
+  async copyCategoryFields(sourceCategoryId: string, targetCategoryId: string): Promise<{
+    defaultFieldsConfig?: Category['defaultFieldsConfig']
+    customFields?: Category['customFields']
+  }> {
+    const source = await this.getById(sourceCategoryId)
+    if (!source) throw new Error('Source category not found')
+
+    const clonedDefaultFields = source.defaultFieldsConfig
+      ? JSON.parse(JSON.stringify(source.defaultFieldsConfig))
+      : undefined
+    const clonedCustomFields = source.customFields
+      ? JSON.parse(JSON.stringify(source.customFields))
+      : undefined
+
+    await this.updateCategory(targetCategoryId, {
+      defaultFieldsConfig: clonedDefaultFields,
+      customFields: clonedCustomFields,
+    })
+
+    return {
+      defaultFieldsConfig: clonedDefaultFields,
+      customFields: clonedCustomFields,
     }
   },
 

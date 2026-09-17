@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { AppLayout } from '../components/layout/AppLayout'
 import { CustomerLookup } from '../components/billing/CustomerLookup'
 import { ProductScanner } from '../components/billing/ProductScanner'
@@ -23,17 +23,39 @@ function MakeBillingPage() {
     name: string
     phone: string
     email?: string
+    gstin?: string
     isWalkIn?: boolean
   }>({
     name: '',
     phone: '',
     email: '',
+    gstin: '',
     isWalkIn: false,
   })
 
   const [createdInvoice, setCreatedInvoice] = useState<BillingInvoice | null>(null)
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false)
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false)
+  const [ledgerDiscount, setLedgerDiscount] = useState<{
+    discountAmount: number
+    discountCode?: string
+  }>({ discountAmount: 0 })
+
+  // Memoized discount change handler with reference equality check to eliminate infinite update loops
+  const handleDiscountChange = useCallback(
+    (d: { discountAmount: number; discountCode?: string }) => {
+      setLedgerDiscount((prev) => {
+        if (prev.discountAmount === d.discountAmount && prev.discountCode === d.discountCode) {
+          return prev
+        }
+        return {
+          discountAmount: d.discountAmount,
+          discountCode: d.discountCode,
+        }
+      })
+    },
+    []
+  )
 
   // Track Esc key timestamp for ESC + 1 combination detection
   const lastEscTimeRef = useRef<number>(0)
@@ -116,15 +138,18 @@ function MakeBillingPage() {
     setItems((prev) => {
       const existing = prev.find((item) => item.productId === newItem.productId)
       if (existing) {
-        return prev.map((item) =>
-          item.productId === newItem.productId
-            ? {
-                ...item,
-                quantity: item.quantity + newItem.quantity,
-                total: (item.quantity + newItem.quantity) * item.price,
-              }
-            : item
-        )
+        return prev.map((item) => {
+          if (item.productId !== newItem.productId) return item
+          const combinedQty = item.quantity + newItem.quantity
+          const combinedDiscount = (item.discountAmount || 0) + (newItem.discountAmount || 0)
+          const combinedTotal = Math.max(0, combinedQty * item.price - combinedDiscount)
+          return {
+            ...item,
+            quantity: combinedQty,
+            discountAmount: combinedDiscount > 0 ? combinedDiscount : undefined,
+            total: combinedTotal,
+          }
+        })
       }
       return [...prev, newItem]
     })
@@ -172,6 +197,7 @@ function MakeBillingPage() {
       name: '',
       phone: '',
       email: '',
+      gstin: '',
       isWalkIn: false,
     })
     setIsClearConfirmOpen(false)
@@ -184,6 +210,7 @@ function MakeBillingPage() {
       name: '',
       phone: '',
       email: '',
+      gstin: '',
       isWalkIn: false,
     })
     showToast('Reset billing ledger', 'info')
@@ -217,9 +244,10 @@ function MakeBillingPage() {
     const newInvoice = addInvoice({
       customer: {
         id: customer.id,
-        name: customer.name || 'Walk-in Customer',
+        name: (customer.name || 'Walk-in Customer').toUpperCase(),
         phone: customer.phone || '—',
-        email: customer.email,
+        email: customer.email ? customer.email.toLowerCase() : undefined,
+        gstin: customer.gstin ? customer.gstin.toUpperCase() : undefined,
         isWalkIn: customer.isWalkIn,
       },
       items: [...items],
@@ -250,8 +278,113 @@ function MakeBillingPage() {
       name: '',
       phone: '',
       email: '',
+      gstin: '',
       isWalkIn: false,
     })
+    setLedgerDiscount({ discountAmount: 0 })
+  }
+
+  const handleOpenPreview = () => {
+    // If there are items in the cart, preview the live cart
+    if (items.length > 0) {
+      const subtotal = items.reduce((sum, item) => sum + (item.total ?? item.price * item.quantity), 0)
+      const defaultTaxPercent =
+        typeof settings.taxRatePercent === 'number' ? settings.taxRatePercent : 0
+      const hasItemGst = items.some((item) => item.gstPercent !== undefined)
+      const taxAmount =
+        Math.round(
+          (hasItemGst
+            ? items.reduce((sum, item) => {
+                const rate = item.gstPercent !== undefined ? item.gstPercent : defaultTaxPercent
+                return sum + ((item.total ?? item.price * item.quantity) * rate) / 100
+              }, 0)
+            : (subtotal * defaultTaxPercent) / 100) * 100
+        ) / 100
+      const billDiscount = ledgerDiscount.discountAmount || 0
+      const netTotal = Math.round(Math.max(0, subtotal + taxAmount - billDiscount))
+
+      const previewInvoice: BillingInvoice = {
+        id: '#INV-PREVIEW',
+        numericId: 9999,
+        customer: {
+          id: customer.id,
+          name: (customer.name || 'Walk-in Customer').toUpperCase(),
+          phone: customer.phone || '—',
+          email: customer.email ? customer.email.toLowerCase() : undefined,
+          gstin: customer.gstin ? customer.gstin.toUpperCase() : undefined,
+          isWalkIn: customer.isWalkIn,
+        },
+        items: [...items],
+        subtotal,
+        taxPercent: defaultTaxPercent,
+        taxAmount,
+        discountCode: ledgerDiscount.discountCode,
+        discountAmount: billDiscount,
+        netTotal,
+        paymentMethod: 'UPI / Cash',
+        status: 'completed',
+        date: currentDate || new Date().toISOString().split('T')[0],
+        timestamp: currentTime ? currentTime.split(' ')[1] : '12:00:00',
+      }
+      setCreatedInvoice(previewInvoice)
+      setIsReceiptModalOpen(true)
+      showToast('Viewing live invoice preview', 'info')
+    } else {
+      // If cart is empty, provide a clean realistic sample preview with both item & bill discounts
+      const sampleItems: BillingItem[] = [
+        {
+          productId: 'sample-item-1',
+          name: 'Designer Silk Saree',
+          description: 'Pure Kanjeevaram Gold Zari Border with Hand Embroidery',
+          category: 'Clothing',
+          price: 3499,
+          quantity: 1,
+          discountAmount: 200,
+          total: 3299,
+          gstPercent: 5,
+        },
+        {
+          productId: 'sample-item-2',
+          name: 'Handcrafted Velvet Bangles',
+          description: 'Size 2.6, Velvet Finish, Gold Foil Rim',
+          category: 'Bangles',
+          price: 650,
+          quantity: 2,
+          discountAmount: 100,
+          total: 1200,
+          gstPercent: 0,
+        },
+      ]
+      const subtotal = 4499
+      const taxAmount = (3299 * 5) / 100
+      const sampleBillDiscount = 150
+      const netTotal = Math.round(subtotal + taxAmount - sampleBillDiscount)
+
+      const sampleInvoice: BillingInvoice = {
+        id: '#INV-PREVIEW',
+        numericId: 1001,
+        customer: {
+          name: customer.name || 'Priya Sharma (Sample)',
+          phone: customer.phone || '+91 98765 43210',
+          email: customer.email || 'priya.sharma@example.com',
+          isWalkIn: false,
+        },
+        items: sampleItems,
+        subtotal,
+        taxPercent: 5,
+        taxAmount,
+        discountCode: 'FESTIVE150',
+        discountAmount: sampleBillDiscount,
+        netTotal,
+        paymentMethod: 'UPI / PhonePe',
+        status: 'completed',
+        date: currentDate || new Date().toISOString().split('T')[0],
+        timestamp: currentTime ? currentTime.split(' ')[1] : '12:00:00',
+      }
+      setCreatedInvoice(sampleInvoice)
+      setIsReceiptModalOpen(true)
+      showToast('Showing sample invoice preview (Cart is empty)', 'info')
+    }
   }
 
   return (
@@ -264,6 +397,15 @@ function MakeBillingPage() {
               <span className="font-headline-md text-headline-md text-on-surface">
                 Make Billing
               </span>
+              {/* Quick Preview Icon for Testing */}
+              <button
+                type="button"
+                onClick={handleOpenPreview}
+                className="p-1 rounded-DEFAULT hover:bg-surface-container text-on-surface-variant hover:text-secondary transition-colors cursor-pointer"
+                title="Preview Invoice Layout (for testing)"
+              >
+                <span className="material-symbols-outlined text-[20px]">visibility</span>
+              </button>
             </div>
             <p className="font-body-sm text-body-sm text-on-surface-variant">
               High-speed retail transaction register
@@ -271,9 +413,19 @@ function MakeBillingPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-2.5 py-1 rounded-DEFAULT">
+          <span className="hidden sm:inline-block font-label-sm text-label-sm text-on-surface-variant bg-surface-container px-2.5 py-1 rounded-DEFAULT">
             Hotkeys: [F2] Scan • [ESC+1] Delete Recent • [ESC] Clear All • [Ctrl+Enter] Settle
           </span>
+          <button
+            id="preview-bill-btn"
+            type="button"
+            onClick={handleOpenPreview}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-surface-container-low hover:bg-surface-container text-on-surface rounded-DEFAULT border border-outline-variant/40 transition-colors font-label-md text-label-md cursor-pointer shadow-2xs"
+            title="Preview Bill Layout (for testing)"
+          >
+            <span className="material-symbols-outlined text-[18px] text-secondary">visibility</span>
+            <span>Preview</span>
+          </button>
           <button
             id="reset-register-btn"
             type="button"
@@ -306,6 +458,7 @@ function MakeBillingPage() {
             onRemoveItem={handleRemoveItem}
             onClearAll={handleClearAllRequest}
             onConfirmBilling={handleConfirmBilling}
+            onDiscountChange={handleDiscountChange}
           />
         </div>
       </div>

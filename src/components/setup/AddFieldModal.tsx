@@ -4,6 +4,7 @@ import type { CustomProductField, CustomFieldType } from '../../types/pos'
 interface AddFieldModalProps {
   isOpen: boolean
   fieldToEdit?: CustomProductField | null
+  existingSeparateHeaders?: string[]
   onClose: () => void
   onSave: (field: CustomProductField) => void
 }
@@ -56,6 +57,7 @@ const FIELD_TYPES: { type: CustomFieldType; label: string; icon: string; desc: s
 export const AddFieldModal: React.FC<AddFieldModalProps> = ({
   isOpen,
   fieldToEdit,
+  existingSeparateHeaders = [],
   onClose,
   onSave,
 }) => {
@@ -64,9 +66,12 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
   const [placeholder, setPlaceholder] = useState('')
   const [required, setRequired] = useState(false)
   const [showInBilling, setShowInBilling] = useState(true)
-  const [showInReceipt, setShowInReceipt] = useState(false)
+  const [billColumnPlacement, setBillColumnPlacement] = useState<'separate' | 'merged' | 'hidden'>('merged')
+  const [billTargetColumn, setBillTargetColumn] = useState<'description' | 'price' | 'quantity' | 'gst' | 'discount'>('description')
+  const [billColumnHeader, setBillColumnHeader] = useState('')
   const [description, setDescription] = useState('')
   const [optionsText, setOptionsText] = useState('')
+  const [textCasing, setTextCasing] = useState<'uppercase' | 'lowercase' | 'normal'>('normal')
 
   useEffect(() => {
     if (fieldToEdit) {
@@ -75,26 +80,55 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
       setPlaceholder(fieldToEdit.placeholder || '')
       setRequired(Boolean(fieldToEdit.required))
       setShowInBilling(fieldToEdit.showInBilling !== false)
-      setShowInReceipt(Boolean(fieldToEdit.showInReceipt))
+      setBillColumnPlacement(fieldToEdit.billColumnPlacement || (fieldToEdit.showInReceipt === false ? 'hidden' : 'merged'))
+      setBillTargetColumn(fieldToEdit.billTargetColumn || 'description')
+      setBillColumnHeader(fieldToEdit.billColumnHeader || '')
       setDescription(fieldToEdit.description || '')
       setOptionsText(fieldToEdit.options ? fieldToEdit.options.join(', ') : '')
+      setTextCasing(fieldToEdit.textCasing || 'normal')
     } else {
       setName('')
       setType('text')
       setPlaceholder('')
       setRequired(false)
       setShowInBilling(true)
-      setShowInReceipt(false)
+      setBillColumnPlacement('merged')
+      setBillTargetColumn('description')
+      setBillColumnHeader('')
       setDescription('')
       setOptionsText('')
+      setTextCasing('normal')
     }
   }, [fieldToEdit, isOpen])
+
+  // Validation for bill column placement
+  const getBillPlacementError = (): string | null => {
+    if (billColumnPlacement === 'separate') {
+      const trimmedHeader = billColumnHeader.trim()
+      if (!trimmedHeader) {
+        return 'Column header name cannot be empty for a separate column'
+      }
+      const otherHeaders = existingSeparateHeaders
+        .filter((h) => !fieldToEdit?.billColumnHeader || h.toLowerCase() !== fieldToEdit.billColumnHeader.toLowerCase())
+        .map((h) => h.toLowerCase())
+      if (otherHeaders.includes(trimmedHeader.toLowerCase())) {
+        return `A separate column with header "${trimmedHeader}" already exists`
+      }
+    } else if (billColumnPlacement === 'merged') {
+      if (!billTargetColumn) {
+        return 'Please select a parent column to merge into'
+      }
+    }
+    return null
+  }
+
+  const billPlacementError = getBillPlacementError()
 
   if (!isOpen) return null
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!name.trim() || billPlacementError) return
 
     const parsedOptions =
       type === 'select'
@@ -108,6 +142,8 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
       fieldToEdit?.id ||
       `cf_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now().toString(36)}`
 
+    const resolvedCasing = type === 'text' || type === 'textarea' ? textCasing : 'normal'
+
     onSave({
       id,
       name: name.trim(),
@@ -115,7 +151,11 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
       placeholder: placeholder.trim() || undefined,
       required,
       showInBilling,
-      showInReceipt,
+      showInReceipt: billColumnPlacement !== 'hidden',
+      billColumnPlacement,
+      billTargetColumn: billColumnPlacement === 'merged' ? billTargetColumn : undefined,
+      billColumnHeader: billColumnPlacement === 'separate' ? billColumnHeader.trim() : undefined,
+      textCasing: resolvedCasing,
       description: description.trim() || undefined,
       options: parsedOptions,
     })
@@ -247,6 +287,83 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
             />
           </div>
 
+          {/* Text Casing Tri-Switch Slider Button - Only for Text and Multi-line Text */}
+          {(type === 'text' || type === 'textarea') && (
+            <div className="space-y-1.5 p-3 bg-surface-container-low rounded-DEFAULT border border-outline-variant/30 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between">
+                <label className="block font-label-md text-label-md text-on-surface font-semibold">
+                  Character Casing Rule
+                </label>
+                <span className="text-[11px] text-on-surface-variant font-mono font-medium">
+                  {textCasing === 'uppercase'
+                    ? 'ABC (ALL CAPS)'
+                    : textCasing === 'lowercase'
+                      ? 'abc (all lower)'
+                      : 'Aa (As Typed)'}
+                </span>
+              </div>
+
+              {/* Tri-Switch Slider Button */}
+              <div className="relative bg-surface-container-high/90 p-1 rounded-full border border-outline-variant/30 flex items-center select-none shadow-2xs">
+                {/* Animated Sliding Background Pill */}
+                <div
+                  className="absolute top-1 bottom-1 rounded-full bg-primary shadow-sm transition-all duration-200 ease-out pointer-events-none"
+                  style={{
+                    width: 'calc((100% - 8px) / 3)',
+                    left:
+                      textCasing === 'uppercase'
+                        ? '4px'
+                        : textCasing === 'lowercase'
+                          ? 'calc(4px + (100% - 8px) / 3)'
+                          : 'calc(4px + ((100% - 8px) / 3) * 2)',
+                  }}
+                />
+
+                {/* Option 1: UPPERCASE */}
+                <button
+                  type="button"
+                  onClick={() => setTextCasing('uppercase')}
+                  className={`relative z-10 flex-1 py-1.5 text-center text-xs font-bold rounded-full transition-colors cursor-pointer ${
+                    textCasing === 'uppercase'
+                      ? 'text-on-primary'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  UPPERCASE
+                </button>
+
+                {/* Option 2: lowercase */}
+                <button
+                  type="button"
+                  onClick={() => setTextCasing('lowercase')}
+                  className={`relative z-10 flex-1 py-1.5 text-center text-xs font-semibold rounded-full transition-colors cursor-pointer ${
+                    textCasing === 'lowercase'
+                      ? 'text-on-primary font-bold'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  lowercase
+                </button>
+
+                {/* Option 3: NormalCase */}
+                <button
+                  type="button"
+                  onClick={() => setTextCasing('normal')}
+                  className={`relative z-10 flex-1 py-1.5 text-center text-xs font-medium rounded-full transition-colors cursor-pointer ${
+                    textCasing === 'normal'
+                      ? 'text-on-primary font-bold'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  NormalCase
+                </button>
+              </div>
+              <span className="text-[10px] text-on-surface-variant block">
+                Enforces text casing in product entry inputs, database storage, and invoice bills.
+              </span>
+            </div>
+          )}
+
           {/* Description */}
           <div className="space-y-1">
             <label className="block font-label-md text-label-md text-on-surface font-semibold">
@@ -261,6 +378,131 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
             />
           </div>
 
+          {/* Bill Column Placement Section */}
+          <div className="space-y-2 pt-2 border-t border-outline-variant/20">
+            <div className="flex items-center justify-between">
+              <label className="block font-label-md text-label-md text-on-surface font-semibold">
+                Bill / Invoice Column Placement <span className="text-error">*</span>
+              </label>
+              {billPlacementError && (
+                <div className="flex items-center gap-1 text-error text-[11px] font-bold">
+                  <span className="material-symbols-outlined text-[16px]">cancel</span>
+                  <span>Invalid Setup</span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setBillColumnPlacement('merged')}
+                className={`p-2 rounded-DEFAULT border text-left cursor-pointer transition-all ${
+                  billColumnPlacement === 'merged'
+                    ? 'border-primary bg-primary/10 text-primary font-semibold'
+                    : 'border-outline-variant/30 bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[18px]">view_column</span>
+                  <span className="text-xs">Same Column</span>
+                </div>
+                <span className="text-[10px] text-on-surface-variant/80 block mt-0.5 leading-tight">
+                  Stack inside parent
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBillColumnPlacement('separate')}
+                className={`p-2 rounded-DEFAULT border text-left cursor-pointer transition-all ${
+                  billColumnPlacement === 'separate'
+                    ? 'border-primary bg-primary/10 text-primary font-semibold'
+                    : 'border-outline-variant/30 bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[18px]">add_column_right</span>
+                  <span className="text-xs">Separate Col</span>
+                </div>
+                <span className="text-[10px] text-on-surface-variant/80 block mt-0.5 leading-tight">
+                  Dedicated header
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBillColumnPlacement('hidden')}
+                className={`p-2 rounded-DEFAULT border text-left cursor-pointer transition-all ${
+                  billColumnPlacement === 'hidden'
+                    ? 'border-primary bg-primary/10 text-primary font-semibold'
+                    : 'border-outline-variant/30 bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[18px]">visibility_off</span>
+                  <span className="text-xs">Do Not Print</span>
+                </div>
+                <span className="text-[10px] text-on-surface-variant/80 block mt-0.5 leading-tight">
+                  Hidden on bill
+                </span>
+              </button>
+            </div>
+
+            {/* If Separate Column Chosen */}
+            {billColumnPlacement === 'separate' && (
+              <div className="p-3 bg-surface-container-low rounded-DEFAULT border border-outline-variant/30 space-y-1.5 animate-in fade-in">
+                <label className="block font-label-sm text-xs text-on-surface font-semibold">
+                  Column Header Name <span className="text-error">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={billColumnHeader}
+                  onChange={(e) => setBillColumnHeader(e.target.value)}
+                  placeholder="e.g. Size / IMEI / Serial No / Batch"
+                  className={`w-full h-9 px-3 bg-surface-container-lowest rounded-DEFAULT text-on-surface text-xs focus:outline-none border ${
+                    !billColumnHeader.trim() || billPlacementError
+                      ? 'border-error focus:ring-1 focus:ring-error'
+                      : 'border-outline-variant/40 focus:ring-1 focus:ring-primary'
+                  }`}
+                />
+                {billPlacementError ? (
+                  <div className="flex items-center gap-1.5 text-error text-[11px] font-semibold mt-1">
+                    <span className="material-symbols-outlined text-[16px]">cancel</span>
+                    <span>{billPlacementError}</span>
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-on-surface-variant block">
+                    Will appear as a distinct table column on printed and PDF bills.
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* If Same Column Chosen */}
+            {billColumnPlacement === 'merged' && (
+              <div className="p-3 bg-surface-container-low rounded-DEFAULT border border-outline-variant/30 space-y-1.5 animate-in fade-in">
+                <label className="block font-label-sm text-xs text-on-surface font-semibold">
+                  Target Parent Column <span className="text-error">*</span>
+                </label>
+                <select
+                  value={billTargetColumn}
+                  onChange={(e) => setBillTargetColumn(e.target.value as any)}
+                  className="w-full h-9 px-2 bg-surface-container-lowest rounded-DEFAULT text-on-surface text-xs border border-outline-variant/40 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                >
+                  <option value="description">Product / Item Description (Recommended)</option>
+                  <option value="price">Rate (₹)</option>
+                  <option value="quantity">Qty / Item Count</option>
+                  <option value="gst">GST (%)</option>
+                  <option value="discount">Discount</option>
+                </select>
+                <span className="text-[10px] text-on-surface-variant block">
+                  Multiple fields sharing this column will be stacked top-to-bottom in defined order.
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* Flags & Toggles */}
           <div className="space-y-2 pt-2 border-t border-outline-variant/20">
             <label className="flex items-center gap-2 text-xs text-on-surface cursor-pointer select-none">
@@ -272,7 +514,7 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
               />
               <span className="font-semibold">Required Field</span>
               <span className="text-on-surface-variant text-[11px]">
-                (Must be filled when adding product)
+                (Must be filled when adding product in billing)
               </span>
             </label>
 
@@ -283,22 +525,9 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
                 onChange={(e) => setShowInBilling(e.target.checked)}
                 className="rounded border-outline-variant text-primary focus:ring-primary"
               />
-              <span className="font-semibold">Show in Billing Screen</span>
+              <span className="font-semibold">Show in Product Entry Form</span>
               <span className="text-on-surface-variant text-[11px]">
-                (Display in product lookup and cart rows)
-              </span>
-            </label>
-
-            <label className="flex items-center gap-2 text-xs text-on-surface cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={showInReceipt}
-                onChange={(e) => setShowInReceipt(e.target.checked)}
-                className="rounded border-outline-variant text-primary focus:ring-primary"
-              />
-              <span className="font-semibold">Print on Customer Receipt</span>
-              <span className="text-on-surface-variant text-[11px]">
-                (Include this detail on printed thermal bill)
+                (Display in dynamic input card on /billing)
               </span>
             </label>
           </div>
@@ -314,9 +543,13 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-DEFAULT bg-primary hover:bg-primary/90 text-on-primary font-label-md text-label-md font-semibold transition-colors cursor-pointer shadow-sm"
+              disabled={Boolean(billPlacementError)}
+              className="px-5 py-2 rounded-DEFAULT bg-primary hover:bg-primary/90 text-on-primary font-label-md text-label-md font-semibold transition-colors cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
             >
-              {fieldToEdit ? 'Save Changes' : 'Add Field to Catalog'}
+              {billPlacementError && (
+                <span className="material-symbols-outlined text-[16px] text-on-primary">cancel</span>
+              )}
+              <span>{fieldToEdit ? 'Save Changes' : 'Save Field'}</span>
             </button>
           </div>
         </form>

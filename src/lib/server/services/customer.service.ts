@@ -17,9 +17,10 @@ export function mapFirestoreCustomerToUI(c: FirestoreCustomer): UICustomer {
   const lastVisitFormatted = c.lastVisitAt ? formatDateTime(c.lastVisitAt) : ''
   return {
     id: c.customerId,
-    name: c.name,
+    name: c.name.toUpperCase(),
     phone: c.phoneNo,
-    email: c.email || '',
+    email: c.email ? c.email.toLowerCase() : '',
+    gstin: c.gstin ? c.gstin.toUpperCase() : undefined,
     visits: c.visits || 0,
     totalSpend: 0,
     lastVisit: lastVisitFormatted || formatDateTime(c.createdAt),
@@ -34,14 +35,17 @@ export function mapUICustomerToFirestore(
   const nowPayload = { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 }
   const doc: FirestoreCustomer = {
     customerId: ui.id,
-    name: ui.name.trim(),
+    name: ui.name.trim().toUpperCase(),
     phoneNo: sanitizePhone(ui.phone),
     visits: ui.visits || 1,
     createdAt: nowPayload,
     updatedAt: nowPayload,
   }
   if (ui.email?.trim()) {
-    doc.email = ui.email.trim()
+    doc.email = ui.email.trim().toLowerCase()
+  }
+  if (ui.gstin?.trim()) {
+    doc.gstin = ui.gstin.trim().toUpperCase()
   }
   return doc
 }
@@ -67,6 +71,7 @@ export const customerService = {
     name: string
     phone: string
     email?: string
+    gstin?: string
   }): Promise<UICustomer> {
     const cleanPhone = sanitizePhone(data.phone)
     if (!data.name || data.name.trim().length === 0) {
@@ -100,14 +105,17 @@ export const customerService = {
     const nowSeconds = Math.floor(Date.now() / 1000)
     const newFirestoreDoc: FirestoreCustomer = {
       customerId,
-      name: data.name.trim(),
+      name: data.name.trim().toUpperCase(),
       phoneNo: cleanPhone,
       visits: 1,
       createdAt: { seconds: nowSeconds, nanoseconds: 0 },
       updatedAt: { seconds: nowSeconds, nanoseconds: 0 },
     }
     if (data.email?.trim()) {
-      newFirestoreDoc.email = data.email.trim()
+      newFirestoreDoc.email = data.email.trim().toLowerCase()
+    }
+    if (data.gstin?.trim()) {
+      newFirestoreDoc.gstin = data.gstin.trim().toUpperCase()
     }
 
     if (db) {

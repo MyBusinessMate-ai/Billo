@@ -249,3 +249,19 @@ export function cleanFirestoreData<T>(obj: T): T {
   }
   return obj
 }
+
+/**
+ * Applies text casing normalization.
+ * Supported modes: 'uppercase' | 'lowercase' | 'normal'
+ */
+export function applyTextCasing(
+  val: any,
+  casing?: 'uppercase' | 'lowercase' | 'normal' | string
+): string {
+  if (val === undefined || val === null) return ''
+  const str = String(val)
+  if (casing === 'uppercase') return str.toUpperCase()
+  if (casing === 'lowercase') return str.toLowerCase()
+  return str
+}
+

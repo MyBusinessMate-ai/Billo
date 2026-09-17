@@ -16,9 +16,10 @@ export const EditLedgerItemModal: React.FC<EditLedgerItemModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const { settings } = usePOS()
+  const { settings, categories } = usePOS()
 
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [category, setCategory] = useState('')
   const [quantity, setQuantity] = useState<number>(1)
   const [price, setPrice] = useState<number>(0)
@@ -34,11 +35,20 @@ export const EditLedgerItemModal: React.FC<EditLedgerItemModalProps> = ({
     enableInvoiceDiscount: true,
   }
 
-  const configuredFields: CustomProductField[] = settings.productFields || []
+  const categoryObj = categories.find(
+    (c) => c.categoryName.toLowerCase() === (item?.category || '').toLowerCase()
+  )
+
+  const configuredFields: CustomProductField[] =
+    (item?.customFieldConfigs as any) ||
+    (categoryObj?.customFields as any) ||
+    settings.productFields ||
+    []
 
   useEffect(() => {
     if (item) {
       setName(item.name || '')
+      setDescription(item.description || '')
       setCategory(item.category || 'General')
       setQuantity(item.quantity || 1)
       setPrice(item.price || 0)
@@ -74,9 +84,18 @@ export const EditLedgerItemModal: React.FC<EditLedgerItemModalProps> = ({
   const effectiveTotal = Math.max(0, rawTotal - lineDiscount)
 
   const handleCustomFieldChange = (fieldId: string, val: any) => {
+    let processedVal = val
+    if (typeof val === 'string') {
+      const fieldConfig = configuredFields.find((f) => f.id === fieldId)
+      if (fieldConfig?.textCasing === 'uppercase') {
+        processedVal = val.toUpperCase()
+      } else if (fieldConfig?.textCasing === 'lowercase') {
+        processedVal = val.toLowerCase()
+      }
+    }
     setCustomFields((prev) => ({
       ...prev,
-      [fieldId]: val,
+      [fieldId]: processedVal,
     }))
   }
 
@@ -84,9 +103,25 @@ export const EditLedgerItemModal: React.FC<EditLedgerItemModalProps> = ({
     e.preventDefault()
     if (!name.trim() || quantity <= 0 || price < 0) return
 
+    // Normalize custom fields values
+    const normalizedCustomFields: Record<string, any> = {}
+    configuredFields.forEach((cf) => {
+      const v = customFields[cf.id]
+      if (v !== undefined && v !== null && v !== '') {
+        if (typeof v === 'string' && cf.textCasing === 'uppercase') {
+          normalizedCustomFields[cf.id] = v.toUpperCase()
+        } else if (typeof v === 'string' && cf.textCasing === 'lowercase') {
+          normalizedCustomFields[cf.id] = v.toLowerCase()
+        } else {
+          normalizedCustomFields[cf.id] = v
+        }
+      }
+    })
+
     const updated: BillingItem = {
       ...item,
       name: name.trim(),
+      description: description.trim() || undefined,
       category: category.trim() || 'General',
       quantity: Number(quantity),
       price: Number(price),
@@ -94,7 +129,8 @@ export const EditLedgerItemModal: React.FC<EditLedgerItemModalProps> = ({
       gstPercent: gstPercent !== '' && Number(gstPercent) >= 0 ? Number(gstPercent) : undefined,
       discountAmount: lineDiscount > 0 ? lineDiscount : undefined,
       discountPercent: discountType === 'percent' && discountValue > 0 ? discountValue : undefined,
-      customFields: Object.keys(customFields).length > 0 ? customFields : undefined,
+      customFields:
+        Object.keys(normalizedCustomFields).length > 0 ? normalizedCustomFields : undefined,
     }
 
     onSave(updated)
@@ -131,7 +167,7 @@ export const EditLedgerItemModal: React.FC<EditLedgerItemModalProps> = ({
           {/* Item Title & Category */}
           <div className="space-y-pad-xs">
             <label className="block font-label-md text-label-md text-on-surface font-semibold">
-              Item Name / Description <span className="text-error">*</span>
+              Item Name <span className="text-error">*</span>
             </label>
             <input
               type="text"
@@ -140,6 +176,20 @@ export const EditLedgerItemModal: React.FC<EditLedgerItemModalProps> = ({
               onChange={(e) => setName(e.target.value)}
               className="w-full h-10 px-3 bg-surface-container-low border border-outline-variant/40 rounded-DEFAULT text-on-surface font-body-sm focus:outline-none focus:ring-1 focus:ring-primary focus:bg-surface-container-lowest"
               placeholder="e.g. Premium Cotton Shirt"
+            />
+          </div>
+
+          {/* Product Description */}
+          <div className="space-y-pad-xs">
+            <label className="block font-label-md text-label-md text-on-surface font-semibold">
+              Product Description (Optional)
+            </label>
+            <textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full p-2 px-3 bg-surface-container-low border border-outline-variant/40 rounded-DEFAULT text-on-surface font-body-sm focus:outline-none focus:ring-1 focus:ring-primary focus:bg-surface-container-lowest resize-y"
+              placeholder="e.g. Size 2.6, Velvet Finish..."
             />
           </div>
 
@@ -321,6 +371,14 @@ export const EditLedgerItemModal: React.FC<EditLedgerItemModalProps> = ({
                           value={val}
                           onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
                           placeholder={field.placeholder || `Enter ${field.name}`}
+                          style={{
+                            textTransform:
+                              field.textCasing === 'uppercase'
+                                ? 'uppercase'
+                                : field.textCasing === 'lowercase'
+                                  ? 'lowercase'
+                                  : 'none',
+                          }}
                           className="w-full p-2 bg-surface-container-low border border-outline-variant/40 rounded-DEFAULT text-on-surface text-xs focus:outline-none"
                         />
                       ) : (
@@ -335,6 +393,14 @@ export const EditLedgerItemModal: React.FC<EditLedgerItemModalProps> = ({
                           value={val}
                           onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
                           placeholder={field.placeholder || `Enter ${field.name}`}
+                          style={{
+                            textTransform:
+                              field.textCasing === 'uppercase'
+                                ? 'uppercase'
+                                : field.textCasing === 'lowercase'
+                                  ? 'lowercase'
+                                  : 'none',
+                          }}
                           className="w-full h-9 px-3 bg-surface-container-low border border-outline-variant/40 rounded-DEFAULT text-on-surface text-xs focus:outline-none"
                         />
                       )}

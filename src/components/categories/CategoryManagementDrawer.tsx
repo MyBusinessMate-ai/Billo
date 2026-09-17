@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { usePOS } from '../../context/POSContext'
 
 interface CategoryManagementDrawerProps {
@@ -10,12 +11,14 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
   isOpen,
   onClose,
 }) => {
+  const navigate = useNavigate()
   const { categories, addCategory, updateCategory, addBulkCategories, deleteCategory, showToast } =
     usePOS()
 
   const [activeTab, setActiveTab] = useState<'single' | 'csv' | 'list'>('single')
   const [singleCategoryName, setSingleCategoryName] = useState('')
   const [singleBasePrice, setSingleBasePrice] = useState('')
+  const [copyFromCatId, setCopyFromCatId] = useState('')
   const [isSubmittingSingle, setIsSubmittingSingle] = useState(false)
 
   // Inline Table Edit States
@@ -257,9 +260,24 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
 
     setIsSubmittingSingle(true)
     try {
-      await addCategory(trimmed, validPrice)
+      let extraData: any = undefined
+      if (copyFromCatId) {
+        const source = categories.find((c) => c.categoryId === copyFromCatId)
+        if (source) {
+          extraData = {
+            defaultFieldsConfig: source.defaultFieldsConfig
+              ? JSON.parse(JSON.stringify(source.defaultFieldsConfig))
+              : undefined,
+            customFields: source.customFields
+              ? JSON.parse(JSON.stringify(source.customFields))
+              : undefined,
+          }
+        }
+      }
+      await addCategory(trimmed, validPrice, extraData)
       setSingleCategoryName('')
       setSingleBasePrice('')
+      setCopyFromCatId('')
     } catch {
       // Handled in context
     } finally {
@@ -490,6 +508,26 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
           </button>
         </div>
 
+        {/* Setup & Dynamic Fields Integration Banner */}
+        <div className="px-pad-lg pt-3">
+          <button
+            type="button"
+            onClick={() => {
+              onClose()
+              navigate({ to: '/setup' })
+            }}
+            className="w-full py-2 px-3 bg-primary/10 hover:bg-primary/15 text-primary rounded-DEFAULT text-xs font-semibold flex items-center justify-between transition-all cursor-pointer border border-primary/20 group"
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[18px]">dynamic_form</span>
+              <span>Advanced: Configure Category Fields & Columns in /setup</span>
+            </div>
+            <span className="material-symbols-outlined text-[16px] group-hover:translate-x-0.5 transition-transform">
+              arrow_forward
+            </span>
+          </button>
+        </div>
+
         {/* Drawer Body Area */}
         <div className="flex-1 overflow-y-auto p-pad-lg flex flex-col gap-pad-md">
           {/* TAB 1: ADD SINGLE CATEGORY */}
@@ -538,6 +576,26 @@ export const CategoryManagementDrawer: React.FC<CategoryManagementDrawerProps> =
                       />
                     </div>
                   </div>
+
+                  {categories.length > 0 && (
+                    <div>
+                      <label className="block text-[11px] text-on-surface-variant font-medium mb-1">
+                        Inherit / Copy Fields From (Optional)
+                      </label>
+                      <select
+                        value={copyFromCatId}
+                        onChange={(e) => setCopyFromCatId(e.target.value)}
+                        className="w-full p-2 bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT text-xs text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs cursor-pointer"
+                      >
+                        <option value="">Start with Standard 7 Default Fields</option>
+                        {categories.map((c) => (
+                          <option key={c.categoryId} value={c.categoryId}>
+                            Copy from {c.categoryName} ({c.customFields?.length || 0} fields)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <button
                     type="submit"
