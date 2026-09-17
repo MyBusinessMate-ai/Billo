@@ -42,7 +42,8 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
     )
   }, [categories, selectedCategory])
 
-  const defaultFieldsConfig = activeCategoryObj?.defaultFieldsConfig || DEFAULT_CATEGORY_FIELDS_CONFIG
+  const defaultFieldsConfig =
+    activeCategoryObj?.defaultFieldsConfig || DEFAULT_CATEGORY_FIELDS_CONFIG
   const categoryCustomFields = useMemo(() => {
     return (activeCategoryObj?.customFields || []).filter((f) => f.showInBilling !== false)
   }, [activeCategoryObj])
@@ -224,7 +225,10 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
     }
 
     // Validate Product Description
-    if (defaultFieldsConfig.productDescription.enabled && defaultFieldsConfig.productDescription.required) {
+    if (
+      defaultFieldsConfig.productDescription.enabled &&
+      defaultFieldsConfig.productDescription.required
+    ) {
       if (!productDescription.trim()) {
         missing.add('productDescription')
       }
@@ -356,7 +360,8 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
 
         {activeCategoryObj && (
           <span className="text-[11px] text-on-surface-variant font-medium">
-            {categoryCustomFields.length} custom {categoryCustomFields.length === 1 ? 'field' : 'fields'} active
+            {categoryCustomFields.length} custom{' '}
+            {categoryCustomFields.length === 1 ? 'field' : 'fields'} active
           </span>
         )}
       </div>
@@ -444,7 +449,8 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
           {defaultFieldsConfig.productItem.enabled && (
             <div className="md:col-span-8">
               <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1 font-semibold">
-                Product Item / Name {defaultFieldsConfig.productItem.required && <span className="text-error">*</span>}
+                Product Item / Name{' '}
+                {defaultFieldsConfig.productItem.required && <span className="text-error">*</span>}
               </label>
               <input
                 id="prod-name"
@@ -478,7 +484,10 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
         {defaultFieldsConfig.productDescription.enabled && (
           <div>
             <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1 font-semibold">
-              Description {defaultFieldsConfig.productDescription.required && <span className="text-error">*</span>}
+              Description{' '}
+              {defaultFieldsConfig.productDescription.required && (
+                <span className="text-error">*</span>
+              )}
             </label>
             <textarea
               id="prod-desc"
@@ -516,7 +525,8 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
           {defaultFieldsConfig.price.enabled && (
             <div className="col-span-1 sm:col-span-2 md:col-span-3">
               <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1 font-semibold">
-                Price (₹) {defaultFieldsConfig.price.required && <span className="text-error">*</span>}
+                Price (₹){' '}
+                {defaultFieldsConfig.price.required && <span className="text-error">*</span>}
               </label>
               <input
                 id="prod-price"
@@ -580,7 +590,8 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
           {defaultFieldsConfig.itemCount.enabled && (
             <div className="col-span-1 sm:col-span-2 md:col-span-3">
               <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1 font-semibold">
-                Item Count {defaultFieldsConfig.itemCount.required && <span className="text-error">*</span>}
+                Item Count{' '}
+                {defaultFieldsConfig.itemCount.required && <span className="text-error">*</span>}
               </label>
               <div className="flex items-center bg-surface-container-low rounded-DEFAULT px-1.5 border border-outline-variant/40 h-10">
                 <button
@@ -648,7 +659,10 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
 
                 return (
                   <div key={cf.id} className={colSpan}>
-                    <label className="block font-label-sm text-label-sm text-on-surface-variant mb-1 font-semibold truncate" title={cf.name}>
+                    <label
+                      className="block font-label-sm text-label-sm text-on-surface-variant mb-1 font-semibold truncate"
+                      title={cf.name}
+                    >
                       {cf.name} {cf.required && <span className="text-error">*</span>}
                     </label>
 
@@ -660,7 +674,9 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
                         }}
                         onChange={(e) => handleCustomFieldChange(cf.id, e.target.value)}
                         className={`w-full h-10 bg-surface-container-low px-3 rounded-DEFAULT text-body-sm text-on-surface focus:outline-none border transition-all cursor-pointer ${
-                          isMissing ? 'border-error focus:ring-1 focus:ring-error' : 'border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary'
+                          isMissing
+                            ? 'border-error focus:ring-1 focus:ring-error'
+                            : 'border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary'
                         }`}
                       >
                         <option value="">{cf.placeholder || `Select ${cf.name}...`}</option>
@@ -681,7 +697,9 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
                           onChange={(e) => handleCustomFieldChange(cf.id, e.target.checked)}
                           className="rounded text-primary focus:ring-primary"
                         />
-                        <span className="text-xs text-on-surface font-medium">{cf.placeholder || 'Yes'}</span>
+                        <span className="text-xs text-on-surface font-medium">
+                          {cf.placeholder || 'Yes'}
+                        </span>
                       </label>
                     ) : cf.type === 'textarea' ? (
                       <textarea
@@ -704,7 +722,9 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
                         }}
                         onChange={(e) => handleCustomFieldChange(cf.id, e.target.value)}
                         className={`w-full bg-surface-container-low px-3 py-2 rounded-DEFAULT text-body-sm text-on-surface focus:outline-none border transition-all resize-y ${
-                          isMissing ? 'border-error focus:ring-1 focus:ring-error' : 'border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary'
+                          isMissing
+                            ? 'border-error focus:ring-1 focus:ring-error'
+                            : 'border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary'
                         }`}
                       />
                     ) : cf.type === 'number' ? (
@@ -715,9 +735,16 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleManualAdd()
                         }}
-                        onChange={(e) => handleCustomFieldChange(cf.id, e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        onChange={(e) =>
+                          handleCustomFieldChange(
+                            cf.id,
+                            e.target.value === '' ? '' : parseFloat(e.target.value)
+                          )
+                        }
                         className={`w-full h-10 bg-surface-container-low px-3 rounded-DEFAULT font-mono-numeric-sm text-xs text-on-surface focus:outline-none border transition-all ${
-                          isMissing ? 'border-error focus:ring-1 focus:ring-error' : 'border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary'
+                          isMissing
+                            ? 'border-error focus:ring-1 focus:ring-error'
+                            : 'border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary'
                         }`}
                       />
                     ) : cf.type === 'date' ? (
@@ -729,7 +756,9 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
                         }}
                         onChange={(e) => handleCustomFieldChange(cf.id, e.target.value)}
                         className={`w-full h-10 bg-surface-container-low px-3 rounded-DEFAULT text-xs text-on-surface focus:outline-none border transition-all ${
-                          isMissing ? 'border-error focus:ring-1 focus:ring-error' : 'border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary'
+                          isMissing
+                            ? 'border-error focus:ring-1 focus:ring-error'
+                            : 'border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary'
                         }`}
                       />
                     ) : (
@@ -750,7 +779,9 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
                         }}
                         onChange={(e) => handleCustomFieldChange(cf.id, e.target.value)}
                         className={`w-full h-10 bg-surface-container-low px-3 rounded-DEFAULT text-body-sm text-on-surface focus:outline-none border transition-all ${
-                          isMissing ? 'border-error focus:ring-1 focus:ring-error' : 'border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary'
+                          isMissing
+                            ? 'border-error focus:ring-1 focus:ring-error'
+                            : 'border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary'
                         }`}
                       />
                     )}
@@ -765,10 +796,16 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
         <div className="pt-3 border-t border-outline-variant/20 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs text-on-surface-variant font-mono-numeric-sm flex-wrap">
             <span className="font-bold text-on-surface text-sm">
-              Item Total: ₹{itemCalculatedTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              Item Total: ₹
+              {itemCalculatedTotal.toLocaleString('en-IN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </span>
             <span className="text-on-surface-variant/40">•</span>
-            <span>Rate: ₹{(customPrice || 0).toFixed(2)} × {quantity}</span>
+            <span>
+              Rate: ₹{(customPrice || 0).toFixed(2)} × {quantity}
+            </span>
             {itemTaxVal > 0 && (
               <>
                 <span className="text-on-surface-variant/40">•</span>
@@ -778,7 +815,9 @@ export const ProductScanner: React.FC<ProductScannerProps> = ({ onAddItem }) => 
             {itemDiscountVal > 0 && (
               <>
                 <span className="text-on-surface-variant/40">•</span>
-                <span className="text-emerald-600 font-medium">Disc (-₹{itemDiscountVal.toFixed(2)})</span>
+                <span className="text-emerald-600 font-medium">
+                  Disc (-₹{itemDiscountVal.toFixed(2)})
+                </span>
               </>
             )}
           </div>

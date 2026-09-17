@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import type { BillingItem, CustomProductField } from '../../types/pos'
+import type { BillingItem } from '../../types/pos'
+import type { CategoryCustomField } from '../../types/schema'
 import { usePOS } from '../../context/POSContext'
 import { formatINR } from '../../utils/formatters'
 
@@ -39,11 +40,8 @@ export const EditLedgerItemModal: React.FC<EditLedgerItemModalProps> = ({
     (c) => c.categoryName.toLowerCase() === (item?.category || '').toLowerCase()
   )
 
-  const configuredFields: CustomProductField[] =
-    (item?.customFieldConfigs as any) ||
-    (categoryObj?.customFields as any) ||
-    settings.productFields ||
-    []
+  const configuredFields: CategoryCustomField[] =
+    item?.customFieldConfigs || categoryObj?.customFields || []
 
   useEffect(() => {
     if (item) {

@@ -55,9 +55,7 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
     tmpl.showPhone && settings.phone && settings.phone.trim() !== '' && settings.phone !== '—'
   )
   const storeEmail = (settings as any).email || settings.supportEmail || ''
-  const hasEmail = Boolean(
-    tmpl.showEmail !== false && storeEmail && storeEmail.trim() !== ''
-  )
+  const hasEmail = Boolean(tmpl.showEmail !== false && storeEmail && storeEmail.trim() !== '')
   const hasAddress = Boolean(
     tmpl.showAddress && settings.registeredAddress && settings.registeredAddress.trim() !== ''
   )
@@ -70,13 +68,18 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
       : null
 
   const fallbackTaxPercent = invoice.taxPercent ?? settings.taxRatePercent ?? 0
-  const hasItemGst = invoice.items.some((item) => item.gstPercent !== undefined && item.gstPercent > 0)
+  const hasItemGst = invoice.items.some(
+    (item) => item.gstPercent !== undefined && item.gstPercent > 0
+  )
 
   // Total Gross across items (Rate * Qty)
   const totalGross = invoice.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
   // Total Item-wise Discounts
-  const totalItemDiscounts = invoice.items.reduce((sum, item) => sum + (item.discountAmount || 0), 0)
+  const totalItemDiscounts = invoice.items.reduce(
+    (sum, item) => sum + (item.discountAmount || 0),
+    0
+  )
 
   // Taxable Subtotal (Sum of items after item-wise discounts)
   const taxableSubtotal =
@@ -84,7 +87,9 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
       ? invoice.items.reduce((sum, item) => {
           const lineGross = item.price * item.quantity
           const lineDisc = item.discountAmount || 0
-          return sum + (typeof item.total === 'number' ? item.total : Math.max(0, lineGross - lineDisc))
+          return (
+            sum + (typeof item.total === 'number' ? item.total : Math.max(0, lineGross - lineDisc))
+          )
         }, 0)
       : invoice.subtotal || 0
 
@@ -94,7 +99,8 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
       ? invoice.items.reduce((sum, item) => {
           const lineGross = item.price * item.quantity
           const lineDisc = item.discountAmount || 0
-          const lineTaxable = typeof item.total === 'number' ? item.total : Math.max(0, lineGross - lineDisc)
+          const lineTaxable =
+            typeof item.total === 'number' ? item.total : Math.max(0, lineGross - lineDisc)
           const itemTaxRate = item.gstPercent !== undefined ? item.gstPercent : fallbackTaxPercent
           return sum + (lineTaxable * itemTaxRate) / 100
         }, 0)
@@ -187,7 +193,8 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
     invoice.items.forEach((item) => {
       const configs =
         item.customFieldConfigs ||
-        categories.find((c) => c.categoryName.toLowerCase() === item.category.toLowerCase())?.customFields ||
+        categories.find((c) => c.categoryName.toLowerCase() === item.category.toLowerCase())
+          ?.customFields ||
         []
       configs.forEach((cfg) => {
         if (cfg.billColumnPlacement === 'separate' && cfg.billColumnHeader?.trim()) {
@@ -204,7 +211,8 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
   const getMergedFieldsForColumn = (item: BillingItem, targetCol: string) => {
     const configs =
       item.customFieldConfigs ||
-      categories.find((c) => c.categoryName.toLowerCase() === item.category?.toLowerCase())?.customFields ||
+      categories.find((c) => c.categoryName.toLowerCase() === item.category?.toLowerCase())
+        ?.customFields ||
       []
     return configs
       .filter((cfg) => {
@@ -219,7 +227,6 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
       })
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   }
-
 
   return (
     <div
@@ -378,32 +385,17 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
           <thead>
             <tr className="bg-slate-100 text-[10px] font-black uppercase text-slate-900 border-b-2 border-slate-900">
               <th className="py-2.5 px-2 text-center w-10">S.No.</th>
-              <th className="py-2.5 px-3">
-                {tmpl.itemLabel || 'Product / Item Description'}
-              </th>
+              <th className="py-2.5 px-3">{tmpl.itemLabel || 'Product / Item Description'}</th>
               {separateColumns.map((col) => (
-                <th
-                  key={col.fieldId}
-                  className="py-2.5 px-2.5 text-center min-w-[70px]"
-                >
+                <th key={col.fieldId} className="py-2.5 px-2.5 text-center min-w-[70px]">
                   {col.header}
                 </th>
               ))}
-              {tmpl.showHsn && (
-                <th className="py-2.5 px-2 text-center w-20">HSN/SAC</th>
-              )}
-              <th className="py-2.5 px-2 text-center w-14">
-                {tmpl.qtyLabel || 'Qty'}
-              </th>
-              <th className="py-2.5 px-2.5 text-right w-24">
-                {tmpl.rateLabel || 'Rate (₹)'}
-              </th>
-              <th className="py-2.5 px-2.5 text-right w-24">
-                {tmpl.totalLabel || 'Total (₹)'}
-              </th>
-              {hasDiscount && (
-                <th className="py-2.5 px-2 text-right w-16">Disc (₹)</th>
-              )}
+              {tmpl.showHsn && <th className="py-2.5 px-2 text-center w-20">HSN/SAC</th>}
+              <th className="py-2.5 px-2 text-center w-14">{tmpl.qtyLabel || 'Qty'}</th>
+              <th className="py-2.5 px-2.5 text-right w-24">{tmpl.rateLabel || 'Rate (₹)'}</th>
+              <th className="py-2.5 px-2.5 text-right w-24">{tmpl.totalLabel || 'Total (₹)'}</th>
+              {hasDiscount && <th className="py-2.5 px-2 text-right w-16">Disc (₹)</th>}
               {tmpl.showTaxBreakdown && hasTax && (
                 <>
                   <th className="py-2.5 px-2 text-right w-20">CGST</th>
@@ -427,9 +419,7 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
 
               return (
                 <tr key={idx} className="bg-white">
-                  <td className="py-2 px-2 text-center font-mono text-slate-600">
-                    {idx + 1}
-                  </td>
+                  <td className="py-2 px-2 text-center font-mono text-slate-600">{idx + 1}</td>
                   <td className="py-2 px-3 font-bold text-slate-950">
                     <div>{item.name}</div>
                     {item.description && (
@@ -444,7 +434,9 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
                         className="text-[10px] font-normal text-slate-700 mt-0.5 flex items-center gap-1"
                       >
                         <span className="font-semibold text-slate-600">{field.name}:</span>
-                        <span>{applyTextCasing(item.customFields?.[field.id], field.textCasing)}</span>
+                        <span>
+                          {applyTextCasing(item.customFields?.[field.id], field.textCasing)}
+                        </span>
                       </div>
                     ))}
                     <div className="flex items-center gap-2 mt-0.5">
@@ -484,7 +476,8 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
                       <div>{item.hsn || '84733099'}</div>
                       {getMergedFieldsForColumn(item, 'hsn').map((field) => (
                         <div key={field.id} className="text-[9px] text-slate-500 font-sans">
-                          {field.name}: {applyTextCasing(item.customFields?.[field.id], field.textCasing)}
+                          {field.name}:{' '}
+                          {applyTextCasing(item.customFields?.[field.id], field.textCasing)}
                         </div>
                       ))}
                     </td>
@@ -492,8 +485,12 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
                   <td className="py-2 px-2 text-center font-mono font-bold text-slate-900">
                     <div>{item.quantity}</div>
                     {getMergedFieldsForColumn(item, 'qty').map((field) => (
-                      <div key={field.id} className="text-[9px] text-slate-500 font-sans font-normal">
-                        {field.name}: {applyTextCasing(item.customFields?.[field.id], field.textCasing)}
+                      <div
+                        key={field.id}
+                        className="text-[9px] text-slate-500 font-sans font-normal"
+                      >
+                        {field.name}:{' '}
+                        {applyTextCasing(item.customFields?.[field.id], field.textCasing)}
                       </div>
                     ))}
                   </td>
@@ -501,7 +498,8 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
                     <div>{item.price.toFixed(2)}</div>
                     {getMergedFieldsForColumn(item, 'rate').map((field) => (
                       <div key={field.id} className="text-[9px] text-slate-500 font-sans">
-                        {field.name}: {applyTextCasing(item.customFields?.[field.id], field.textCasing)}
+                        {field.name}:{' '}
+                        {applyTextCasing(item.customFields?.[field.id], field.textCasing)}
                       </div>
                     ))}
                   </td>
@@ -509,7 +507,8 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
                     <div>{lineGross.toFixed(2)}</div>
                     {getMergedFieldsForColumn(item, 'total').map((field) => (
                       <div key={field.id} className="text-[9px] text-slate-500 font-sans">
-                        {field.name}: {applyTextCasing(item.customFields?.[field.id], field.textCasing)}
+                        {field.name}:{' '}
+                        {applyTextCasing(item.customFields?.[field.id], field.textCasing)}
                       </div>
                     ))}
                   </td>
@@ -546,7 +545,12 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
             })}
             {/* Flexible spacer row that absorbs all remaining height to push the total row to the bottom */}
             <tr style={{ height: '100%' }}>
-              <td colSpan={100} className="p-0 border-0 text-transparent select-none pointer-events-none">&nbsp;</td>
+              <td
+                colSpan={100}
+                className="p-0 border-0 text-transparent select-none pointer-events-none"
+              >
+                &nbsp;
+              </td>
             </tr>
           </tbody>
           {/* Table Totals Row pinned at the bottom of the items section */}
@@ -557,18 +561,14 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
                 TOTAL ITEMS: {invoice.items.length} ({totalQty} {totalQty === 1 ? 'UNIT' : 'UNITS'})
               </td>
               {separateColumns.map((col) => (
-                <td key={col.fieldId} className="py-2 px-2.5 text-center">—</td>
+                <td key={col.fieldId} className="py-2 px-2.5 text-center">
+                  —
+                </td>
               ))}
-              {tmpl.showHsn && (
-                <td className="py-2 px-2 text-center">—</td>
-              )}
-              <td className="py-2 px-2 text-center font-mono">
-                {totalQty}
-              </td>
+              {tmpl.showHsn && <td className="py-2 px-2 text-center">—</td>}
+              <td className="py-2 px-2 text-center font-mono">{totalQty}</td>
               <td className="py-2 px-2.5 text-right">—</td>
-              <td className="py-2.5 px-2.5 text-right font-mono">
-                {totalGross.toFixed(2)}
-              </td>
+              <td className="py-2.5 px-2.5 text-right font-mono">{totalGross.toFixed(2)}</td>
               {hasDiscount && (
                 <td className="py-2.5 px-2 text-right font-mono text-emerald-700">
                   {totalItemDiscounts.toFixed(2)}
@@ -576,12 +576,8 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
               )}
               {tmpl.showTaxBreakdown && hasTax && (
                 <>
-                  <td className="py-2.5 px-2 text-right font-mono">
-                    {halfTaxAmount.toFixed(2)}
-                  </td>
-                  <td className="py-2.5 px-2 text-right font-mono">
-                    {halfTaxAmount.toFixed(2)}
-                  </td>
+                  <td className="py-2.5 px-2 text-right font-mono">{halfTaxAmount.toFixed(2)}</td>
+                  <td className="py-2.5 px-2 text-right font-mono">{halfTaxAmount.toFixed(2)}</td>
                 </>
               )}
               <td className="py-2.5 px-3 text-right font-mono font-black">
@@ -612,12 +608,7 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
           {settings.showDynamicQrOnBill !== false && tmpl.showQrCode !== false && (
             <div className="pt-1.5 border-t border-slate-200 flex items-center gap-2.5">
               <div className="p-0.5 bg-white border border-slate-300 rounded inline-flex items-center justify-center shadow-2xs shrink-0">
-                <QRCodeSVG
-                  value={dynamicQr.url}
-                  size={46}
-                  level="M"
-                  includeMargin={false}
-                />
+                <QRCodeSVG value={dynamicQr.url} size={46} level="M" includeMargin={false} />
               </div>
               <div className="min-w-0">
                 <span className="text-[8.5px] font-extrabold uppercase tracking-wider text-slate-900 block leading-tight">
@@ -745,7 +736,8 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
             {tmpl.showAuthorizedSignatory !== false ? (
               <>
                 <span className="text-[9.5px] font-extrabold uppercase text-slate-900 tracking-wider block">
-                  {tmpl.signatoryText || `For ${settings.storeName || settings.businessName || 'Store Outlet'}`}
+                  {tmpl.signatoryText ||
+                    `For ${settings.storeName || settings.businessName || 'Store Outlet'}`}
                 </span>
 
                 {/* Physical signature & rubber stamp space */}
@@ -785,4 +777,3 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
 
 export const VerticalInvoice = HorizontalInvoice
 export const CommercialInvoice = HorizontalInvoice
-

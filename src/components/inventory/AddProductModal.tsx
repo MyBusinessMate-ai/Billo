@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { X, PackagePlus } from 'lucide-react'
 import { usePOS } from '../../context/POSContext'
+import type { CategoryCustomField } from '../../types/schema'
 
 interface AddProductModalProps {
   isOpen: boolean
@@ -8,7 +9,7 @@ interface AddProductModalProps {
 }
 
 export const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClose }) => {
-  const { addProduct, currentDate, categories, settings, showToast } = usePOS()
+  const { addProduct, currentDate, categories, showToast } = usePOS()
 
   const [name, setName] = useState('')
   const [sku, setSku] = useState('SKU-' + Math.floor(100000 + Math.random() * 900000))
@@ -20,9 +21,26 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClos
   const [unit, setUnit] = useState<string>('pcs')
   const [customFields, setCustomFields] = useState<Record<string, any>>({})
 
-  const configuredFields = settings.productFields || []
+  const selectedCategory = useMemo(
+    () => categories.find((c) => c.categoryName.toLowerCase() === category.toLowerCase()),
+    [categories, category]
+  )
+
+  const configuredFields: CategoryCustomField[] = selectedCategory?.customFields || []
 
   if (!isOpen) return null
+
+  const handleCategoryChange = (newCat: string) => {
+    setCategory(newCat)
+    const catObj = categories.find((c) => c.categoryName.toLowerCase() === newCat.toLowerCase())
+    const initialCustom: Record<string, any> = {}
+    catObj?.customFields?.forEach((cf) => {
+      if (cf.defaultValue !== undefined) {
+        initialCustom[cf.id] = cf.defaultValue
+      }
+    })
+    setCustomFields(initialCustom)
+  }
 
   const handleCustomFieldChange = (fieldId: string, val: any) => {
     setCustomFields((prev) => ({
@@ -46,6 +64,21 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClos
       }
     }
 
+    // Normalize custom fields values with textCasing
+    const normalizedCustomFields: Record<string, any> = {}
+    configuredFields.forEach((cf) => {
+      const v = customFields[cf.id]
+      if (v !== undefined && v !== null && v !== '') {
+        if (typeof v === 'string' && cf.textCasing === 'uppercase') {
+          normalizedCustomFields[cf.id] = v.toUpperCase()
+        } else if (typeof v === 'string' && cf.textCasing === 'lowercase') {
+          normalizedCustomFields[cf.id] = v.toLowerCase()
+        } else {
+          normalizedCustomFields[cf.id] = v
+        }
+      }
+    })
+
     const margin =
       sellingPrice > 0 ? Math.round(((sellingPrice - costPrice) / sellingPrice) * 100) : 0
 
@@ -61,7 +94,8 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClos
       unit,
       status: stock > 10 ? 'in_stock' : stock > 0 ? 'low_stock' : 'out_of_stock',
       lastRestocked: currentDate,
-      customFields: Object.keys(customFields).length > 0 ? customFields : undefined,
+      customFields:
+        Object.keys(normalizedCustomFields).length > 0 ? normalizedCustomFields : undefined,
     })
 
     onClose()
@@ -130,7 +164,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({ isOpen, onClos
               </label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                onChange={(e) => handleCategoryChange(e.target.value)}
                 className="w-full h-9 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900"
               >
                 {categories.length > 0 ? (

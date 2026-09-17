@@ -447,13 +447,21 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
             <div className="flex items-center justify-between text-on-surface-variant">
               <span className="font-label-md text-label-md">Gross Amount</span>
               <span className="font-mono-numeric-md text-mono-numeric-md text-on-surface font-medium">
-                ₹{totalGross.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ₹
+                {totalGross.toLocaleString('en-IN', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
             </div>
             <div className="flex items-center justify-between text-emerald-700">
               <span className="font-label-md text-label-md font-medium">Item Discounts</span>
               <span className="font-mono-numeric-md text-mono-numeric-md font-semibold">
-                -₹{totalItemDiscounts.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                -₹
+                {totalItemDiscounts.toLocaleString('en-IN', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
             </div>
             <div className="flex items-center justify-between text-on-surface-variant">
@@ -462,7 +470,11 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
                 className="font-mono-numeric-md text-mono-numeric-md text-on-surface font-medium"
                 id="subtotal-val"
               >
-                ₹{grossSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                ₹
+                {grossSubtotal.toLocaleString('en-IN', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
             </div>
           </>

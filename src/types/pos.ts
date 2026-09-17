@@ -17,27 +17,6 @@ export interface Customer {
 
 export type StockStatus = 'in_stock' | 'low_stock' | 'out_of_stock'
 
-export type CustomFieldType =
-  'text' | 'number' | 'link' | 'date' | 'select' | 'boolean' | 'textarea'
-
-export interface CustomProductField {
-  id: string
-  name: string
-  type: CustomFieldType
-  options?: string[] // For 'select' type (e.g. ['Small', 'Medium', 'Large'])
-  required?: boolean
-  placeholder?: string
-  defaultValue?: string | number | boolean
-  showInBilling?: boolean
-  showInReceipt?: boolean
-  billColumnPlacement?: 'separate' | 'merged' | 'hidden'
-  billTargetColumn?: 'description' | 'price' | 'quantity' | 'gst' | 'discount'
-  billColumnHeader?: string
-  textCasing?: 'uppercase' | 'lowercase' | 'normal'
-  order?: number
-  description?: string
-}
-
 export type {
   CategoryDefaultFieldSetting,
   CategoryDefaultFieldsConfig,
@@ -212,6 +191,5 @@ export interface StoreSettings {
   themeMode?: 'light' | 'dark'
   backgroundColor?: string
   textColor?: string
-  productFields?: CustomProductField[]
   billingRules?: BillingRulesConfig
 }

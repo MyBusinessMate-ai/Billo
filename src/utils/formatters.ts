@@ -264,4 +264,3 @@ export function applyTextCasing(
   if (casing === 'lowercase') return str.toLowerCase()
   return str
 }
-

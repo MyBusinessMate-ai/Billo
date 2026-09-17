@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react'
-import type { CustomProductField, CustomFieldType } from '../../types/pos'
+import type { CategoryCustomField } from '../../types/schema'
+
+export type CustomFieldType = CategoryCustomField['type']
 
 interface AddFieldModalProps {
   isOpen: boolean
-  fieldToEdit?: CustomProductField | null
+  fieldToEdit?: CategoryCustomField | null
   existingSeparateHeaders?: string[]
   onClose: () => void
-  onSave: (field: CustomProductField) => void
+  onSave: (field: CategoryCustomField) => void
 }
 
 const FIELD_TYPES: { type: CustomFieldType; label: string; icon: string; desc: string }[] = [
@@ -66,8 +68,12 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
   const [placeholder, setPlaceholder] = useState('')
   const [required, setRequired] = useState(false)
   const [showInBilling, setShowInBilling] = useState(true)
-  const [billColumnPlacement, setBillColumnPlacement] = useState<'separate' | 'merged' | 'hidden'>('merged')
-  const [billTargetColumn, setBillTargetColumn] = useState<'description' | 'price' | 'quantity' | 'gst' | 'discount'>('description')
+  const [billColumnPlacement, setBillColumnPlacement] = useState<'separate' | 'merged' | 'hidden'>(
+    'merged'
+  )
+  const [billTargetColumn, setBillTargetColumn] = useState<
+    'description' | 'price' | 'quantity' | 'gst' | 'discount'
+  >('description')
   const [billColumnHeader, setBillColumnHeader] = useState('')
   const [description, setDescription] = useState('')
   const [optionsText, setOptionsText] = useState('')
@@ -80,7 +86,10 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
       setPlaceholder(fieldToEdit.placeholder || '')
       setRequired(Boolean(fieldToEdit.required))
       setShowInBilling(fieldToEdit.showInBilling !== false)
-      setBillColumnPlacement(fieldToEdit.billColumnPlacement || (fieldToEdit.showInReceipt === false ? 'hidden' : 'merged'))
+      setBillColumnPlacement(
+        fieldToEdit.billColumnPlacement ||
+          (fieldToEdit.showInReceipt === false ? 'hidden' : 'merged')
+      )
       setBillTargetColumn(fieldToEdit.billTargetColumn || 'description')
       setBillColumnHeader(fieldToEdit.billColumnHeader || '')
       setDescription(fieldToEdit.description || '')
@@ -109,7 +118,11 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
         return 'Column header name cannot be empty for a separate column'
       }
       const otherHeaders = existingSeparateHeaders
-        .filter((h) => !fieldToEdit?.billColumnHeader || h.toLowerCase() !== fieldToEdit.billColumnHeader.toLowerCase())
+        .filter(
+          (h) =>
+            !fieldToEdit?.billColumnHeader ||
+            h.toLowerCase() !== fieldToEdit.billColumnHeader.toLowerCase()
+        )
         .map((h) => h.toLowerCase())
       if (otherHeaders.includes(trimmedHeader.toLowerCase())) {
         return `A separate column with header "${trimmedHeader}" already exists`
@@ -153,9 +166,10 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
       showInBilling,
       showInReceipt: billColumnPlacement !== 'hidden',
       billColumnPlacement,
-      billTargetColumn: billColumnPlacement === 'merged' ? billTargetColumn : undefined,
+      billTargetColumn: billColumnPlacement === 'merged' ? billTargetColumn : 'description',
       billColumnHeader: billColumnPlacement === 'separate' ? billColumnHeader.trim() : undefined,
       textCasing: resolvedCasing,
+      order: fieldToEdit?.order ?? 0,
       description: description.trim() || undefined,
       options: parsedOptions,
     })
@@ -497,7 +511,8 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
                   <option value="discount">Discount</option>
                 </select>
                 <span className="text-[10px] text-on-surface-variant block">
-                  Multiple fields sharing this column will be stacked top-to-bottom in defined order.
+                  Multiple fields sharing this column will be stacked top-to-bottom in defined
+                  order.
                 </span>
               </div>
             )}
@@ -547,7 +562,9 @@ export const AddFieldModal: React.FC<AddFieldModalProps> = ({
               className="px-5 py-2 rounded-DEFAULT bg-primary hover:bg-primary/90 text-on-primary font-label-md text-label-md font-semibold transition-colors cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
             >
               {billPlacementError && (
-                <span className="material-symbols-outlined text-[16px] text-on-primary">cancel</span>
+                <span className="material-symbols-outlined text-[16px] text-on-primary">
+                  cancel
+                </span>
               )}
               <span>{fieldToEdit ? 'Save Changes' : 'Save Field'}</span>
             </button>

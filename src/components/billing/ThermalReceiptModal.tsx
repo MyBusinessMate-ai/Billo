@@ -26,7 +26,8 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   onConfirmBilling,
 }) => {
   const { settings, showToast } = usePOS()
-  const activeFormat = formatOverride || invoice?.invoiceFormat || settings.invoiceFormat || 'thermal'
+  const activeFormat =
+    formatOverride || invoice?.invoiceFormat || settings.invoiceFormat || 'thermal'
   const format = activeFormat === 'a4' ? 'horizontal' : 'thermal'
 
   const tmpl: BillTemplateConfig = {
@@ -77,16 +78,23 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
       ? invoice.customer.email.trim()
       : null
   const fallbackTaxPercent = invoice.taxPercent ?? settings.taxRatePercent ?? 0
-  const hasItemGst = invoice.items?.some((item) => item.gstPercent !== undefined && item.gstPercent > 0)
+  const hasItemGst = invoice.items?.some(
+    (item) => item.gstPercent !== undefined && item.gstPercent > 0
+  )
 
   const totalGross = invoice.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const totalItemDiscounts = invoice.items.reduce((sum, item) => sum + (item.discountAmount || 0), 0)
+  const totalItemDiscounts = invoice.items.reduce(
+    (sum, item) => sum + (item.discountAmount || 0),
+    0
+  )
   const taxableSubtotal =
     invoice.items && invoice.items.length > 0
       ? invoice.items.reduce((sum, item) => {
           const lineGross = item.price * item.quantity
           const lineDisc = item.discountAmount || 0
-          return sum + (typeof item.total === 'number' ? item.total : Math.max(0, lineGross - lineDisc))
+          return (
+            sum + (typeof item.total === 'number' ? item.total : Math.max(0, lineGross - lineDisc))
+          )
         }, 0)
       : invoice.subtotal || 0
 
@@ -95,7 +103,8 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
       ? invoice.items.reduce((sum, item) => {
           const lineGross = item.price * item.quantity
           const lineDisc = item.discountAmount || 0
-          const lineTaxable = typeof item.total === 'number' ? item.total : Math.max(0, lineGross - lineDisc)
+          const lineTaxable =
+            typeof item.total === 'number' ? item.total : Math.max(0, lineGross - lineDisc)
           const itemTaxRate = item.gstPercent !== undefined ? item.gstPercent : fallbackTaxPercent
           return sum + (lineTaxable * itemTaxRate) / 100
         }, 0)
@@ -308,9 +317,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                     {tmpl.showCustomerEmail !== false && clientEmail && (
                       <div>
                         <span className="text-slate-500">Email:</span>{' '}
-                        <span className="lowercase">
-                          {clientEmail.toLowerCase()}
-                        </span>
+                        <span className="lowercase">{clientEmail.toLowerCase()}</span>
                       </div>
                     )}
                     {invoice.customer.gstin && (
@@ -334,16 +341,21 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                   </div>
                   <div className="flex flex-col gap-1.5 pt-1 text-[11px]">
                     {invoice.items.map((item, idx) => (
-                      <div key={idx} className="grid grid-cols-12 items-center">
-                        <span className="col-span-6 truncate font-medium">
-                          {item.name}
+                      <div key={idx} className="grid grid-cols-12 items-start">
+                        <span className="col-span-6 font-medium">
+                          <span className="block truncate">{item.name}</span>
+                          {item.description && (
+                            <span className="block text-[9px] text-slate-500 italic font-sans break-words whitespace-normal leading-tight">
+                              {item.description}
+                            </span>
+                          )}
                           {item.discountAmount !== undefined && item.discountAmount > 0 && (
-                            <span className="text-[9px] text-emerald-700 font-semibold ml-1">
+                            <span className="text-[9px] text-emerald-700 font-semibold inline-block mr-1">
                               (-₹{item.discountAmount})
                             </span>
                           )}
                           {item.gstPercent !== undefined && item.gstPercent > 0 && (
-                            <span className="text-[9px] text-slate-500 ml-1">
+                            <span className="text-[9px] text-slate-500 inline-block mr-1">
                               ({item.gstPercent}%)
                             </span>
                           )}
@@ -411,7 +423,9 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
 
                   {hasBillDiscount && (
                     <div className="flex justify-between text-emerald-700 font-semibold">
-                      <span>Bill Discount {invoice.discountCode ? `(${invoice.discountCode})` : ''}:</span>
+                      <span>
+                        Bill Discount {invoice.discountCode ? `(${invoice.discountCode})` : ''}:
+                      </span>
                       <span>-₹{billDiscount.toFixed(2)}</span>
                     </div>
                   )}
@@ -454,7 +468,8 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                 {tmpl.showAuthorizedSignatory !== false && (
                   <div className="py-2.5 border-b border-dashed border-slate-300 text-center space-y-1.5">
                     <span className="text-[9px] font-bold uppercase text-slate-700 block">
-                      {tmpl.signatoryText || `For ${settings.storeName || settings.businessName || 'Store'}`}
+                      {tmpl.signatoryText ||
+                        `For ${settings.storeName || settings.businessName || 'Store'}`}
                     </span>
                     <div className="h-10 border border-dashed border-slate-200 rounded flex items-center justify-center text-[9px] text-slate-300">
                       Signature / Stamp

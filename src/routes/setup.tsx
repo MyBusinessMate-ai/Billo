@@ -30,7 +30,8 @@ function SetupPage() {
               </span>
             </div>
             <p className="font-body-md text-body-md text-on-surface-variant mt-0.5">
-              Customize categories, dynamic product fields, GST tax models, and checkout ledger policies.
+              Customize categories, dynamic product fields, GST tax models, and checkout ledger
+              policies.
             </p>
           </div>
         </div>
@@ -111,10 +112,10 @@ function SetupPage() {
                     Configured Custom Fields
                   </span>
                   <span className="font-mono-numeric-lg text-headline-sm font-bold text-on-surface block">
-                    {settings.productFields?.length || 0} Fields
+                    {categories.reduce((acc, c) => acc + (c.customFields?.length || 0), 0)} Fields
                   </span>
                   <span className="text-xs text-on-surface-variant block">
-                    Active in Product Entry Form
+                    Category Dynamic Fields
                   </span>
                 </div>
 

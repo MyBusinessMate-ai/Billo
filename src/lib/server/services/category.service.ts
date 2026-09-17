@@ -51,7 +51,9 @@ export const categoryService = {
       categoryId,
       categoryName: trimmed,
       ...(typeof basePrice === 'number' && !isNaN(basePrice) ? { basePrice } : {}),
-      ...(extraData?.defaultFieldsConfig ? { defaultFieldsConfig: extraData.defaultFieldsConfig } : {}),
+      ...(extraData?.defaultFieldsConfig
+        ? { defaultFieldsConfig: extraData.defaultFieldsConfig }
+        : {}),
       ...(extraData?.customFields ? { customFields: extraData.customFields } : {}),
       createdAt: { seconds: nowSeconds, nanoseconds: 0 },
       updatedAt: { seconds: nowSeconds, nanoseconds: 0 },
@@ -64,10 +66,7 @@ export const categoryService = {
     return categoryDoc
   },
 
-  async updateCategory(
-    categoryId: string,
-    data: Partial<Category>
-  ): Promise<void> {
+  async updateCategory(categoryId: string, data: Partial<Category>): Promise<void> {
     if (db) {
       const payload: Partial<Category> = {}
       if (data.categoryName !== undefined) {
@@ -87,7 +86,10 @@ export const categoryService = {
     }
   },
 
-  async copyCategoryFields(sourceCategoryId: string, targetCategoryId: string): Promise<{
+  async copyCategoryFields(
+    sourceCategoryId: string,
+    targetCategoryId: string
+  ): Promise<{
     defaultFieldsConfig?: Category['defaultFieldsConfig']
     customFields?: Category['customFields']
   }> {

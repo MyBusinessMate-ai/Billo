@@ -29,7 +29,10 @@ const generateUniqueCopyName = (baseName: string, existingNames: Set<string>): s
 }
 
 const generateFieldId = (name: string): string => {
-  const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 15)
+  const cleanName = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '_')
+    .slice(0, 15)
   return `cf_${cleanName}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
 }
 
@@ -42,7 +45,9 @@ export const CategoryFieldManager: React.FC = () => {
   // Selected Category Working State
   const [categoryName, setCategoryName] = useState('')
   const [basePrice, setBasePrice] = useState<string>('')
-  const [defaultFields, setDefaultFields] = useState<CategoryDefaultFieldsConfig>(DEFAULT_CATEGORY_FIELDS_CONFIG)
+  const [defaultFields, setDefaultFields] = useState<CategoryDefaultFieldsConfig>(
+    DEFAULT_CATEGORY_FIELDS_CONFIG
+  )
   const [customFields, setCustomFields] = useState<CategoryCustomField[]>([])
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
 
@@ -89,8 +94,8 @@ export const CategoryFieldManager: React.FC = () => {
   const filteredCategories = useMemo(() => {
     const q = searchCategoryQuery.trim().toLowerCase()
     if (!q) return categories
-    return categories.filter((c) =>
-      c.categoryName.toLowerCase().includes(q) || c.categoryId.toLowerCase().includes(q)
+    return categories.filter(
+      (c) => c.categoryName.toLowerCase().includes(q) || c.categoryId.toLowerCase().includes(q)
     )
   }, [categories, searchCategoryQuery])
 
@@ -176,10 +181,13 @@ export const CategoryFieldManager: React.FC = () => {
     const catId = selectedCatIdRef.current
     if (!catId) return
 
-    const targetName = (overrides?.categoryName !== undefined ? overrides.categoryName : categoryNameRef.current).trim()
+    const targetName = (
+      overrides?.categoryName !== undefined ? overrides.categoryName : categoryNameRef.current
+    ).trim()
     if (!targetName) return
 
-    const rawBasePrice = overrides?.basePrice !== undefined ? overrides.basePrice : basePriceRef.current
+    const rawBasePrice =
+      overrides?.basePrice !== undefined ? overrides.basePrice : basePriceRef.current
     const parsedPrice = parseFloat(rawBasePrice)
     const targetBasePrice = !isNaN(parsedPrice) && parsedPrice >= 0 ? parsedPrice : undefined
 
@@ -325,7 +333,10 @@ export const CategoryFieldManager: React.FC = () => {
     }
     setDefaultFields(nextDefaults)
     defaultFieldsRef.current = nextDefaults
-    await executeSave({ defaultFields: nextDefaults, customToastMessage: 'Category field requirement updated' })
+    await executeSave({
+      defaultFields: nextDefaults,
+      customToastMessage: 'Category field requirement updated',
+    })
   }
 
   // Save/Edit custom field
@@ -337,7 +348,9 @@ export const CategoryFieldManager: React.FC = () => {
     const exists = customFieldsRef.current.some((f) => f.id === field.id)
 
     if (exists) {
-      updated = customFieldsRef.current.map((f) => (f.id === field.id ? { ...field, order: f.order } : f))
+      updated = customFieldsRef.current.map((f) =>
+        f.id === field.id ? { ...field, order: f.order } : f
+      )
     } else {
       const nextOrder = customFieldsRef.current.length
       updated = [...customFieldsRef.current, { ...field, order: nextOrder }]
@@ -347,7 +360,9 @@ export const CategoryFieldManager: React.FC = () => {
     customFieldsRef.current = updated
     await executeSave({
       customFields: updated,
-      customToastMessage: exists ? `Updated custom field "${field.name}"` : `Added field "${field.name}"`,
+      customToastMessage: exists
+        ? `Updated custom field "${field.name}"`
+        : `Added field "${field.name}"`,
     })
   }
 
@@ -497,7 +512,10 @@ export const CategoryFieldManager: React.FC = () => {
   }
 
   // Conflict Resolution Action
-  const resolveConflict = async (action: 'overwrite' | 'keep_both' | 'skip', applyToAll: boolean) => {
+  const resolveConflict = async (
+    action: 'overwrite' | 'keep_both' | 'skip',
+    applyToAll: boolean
+  ) => {
     if (!conflictState) return
 
     const { conflicts, currentIndex, nonConflicting, resolvedPasted, existingWorkingList, counts } =
@@ -573,7 +591,8 @@ export const CategoryFieldManager: React.FC = () => {
     customFieldsRef.current = finalCombined
     setConflictState(null)
 
-    const totalAddedOrUpdated = newCounts.overwritten + newCounts.renamed + finalNonConflicting.length
+    const totalAddedOrUpdated =
+      newCounts.overwritten + newCounts.renamed + finalNonConflicting.length
     let toastMsg = `Pasted ${totalAddedOrUpdated} field${totalAddedOrUpdated === 1 ? '' : 's'}`
     const details: string[] = []
     if (newCounts.overwritten > 0) details.push(`${newCounts.overwritten} overwritten`)
@@ -725,7 +744,8 @@ export const CategoryFieldManager: React.FC = () => {
             </span>
           </h2>
           <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-            Configure default and custom fields per category, copy fields across categories, and set bill column placement.
+            Configure default and custom fields per category, copy fields across categories, and set
+            bill column placement.
           </p>
         </div>
 
@@ -780,7 +800,9 @@ export const CategoryFieldManager: React.FC = () => {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className={`font-label-md text-label-md font-semibold truncate ${isSelected ? 'text-primary' : 'text-on-surface'}`}>
+                      <span
+                        className={`font-label-md text-label-md font-semibold truncate ${isSelected ? 'text-primary' : 'text-on-surface'}`}
+                      >
                         {cat.categoryName}
                       </span>
                       {typeof cat.basePrice === 'number' && cat.basePrice > 0 && (
@@ -792,7 +814,9 @@ export const CategoryFieldManager: React.FC = () => {
                     <div className="flex items-center gap-2 text-[11px] text-on-surface-variant mt-0.5">
                       <span className="font-mono">{cat.categoryId}</span>
                       <span>•</span>
-                      <span>{customCount} custom {customCount === 1 ? 'field' : 'fields'}</span>
+                      <span>
+                        {customCount} custom {customCount === 1 ? 'field' : 'fields'}
+                      </span>
                     </div>
                   </div>
 
@@ -838,7 +862,9 @@ export const CategoryFieldManager: React.FC = () => {
                       )}
                       {saveStatus === 'saved' && (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                          <span className="material-symbols-outlined text-[14px]">
+                            check_circle
+                          </span>
                           <span>Saved automatically</span>
                         </span>
                       )}
@@ -928,11 +954,14 @@ export const CategoryFieldManager: React.FC = () => {
                 <div className="flex items-center justify-between pb-2 border-b border-outline-variant/20">
                   <div>
                     <h4 className="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2">
-                      <span className="material-symbols-outlined text-secondary text-[20px]">tune</span>
+                      <span className="material-symbols-outlined text-secondary text-[20px]">
+                        tune
+                      </span>
                       <span>Default Product Category Fields (7 System Fields)</span>
                     </h4>
                     <p className="text-xs text-on-surface-variant mt-0.5">
-                      Toggle which default fields are included for this category and whether they are required in billing.
+                      Toggle which default fields are included for this category and whether they
+                      are required in billing.
                     </p>
                   </div>
                 </div>
@@ -943,7 +972,9 @@ export const CategoryFieldManager: React.FC = () => {
                   <div className="p-3 flex items-center justify-between bg-surface-container-low/60">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[18px] text-primary">category</span>
+                        <span className="material-symbols-outlined text-[18px] text-primary">
+                          category
+                        </span>
                         <span className="font-label-md text-label-md font-bold text-on-surface">
                           1. Category
                         </span>
@@ -966,13 +997,18 @@ export const CategoryFieldManager: React.FC = () => {
                   <div className="p-3 flex items-center justify-between hover:bg-surface-container-low transition-colors">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[18px] text-secondary">label</span>
+                        <span className="material-symbols-outlined text-[18px] text-secondary">
+                          label
+                        </span>
                         <span className="font-label-md text-label-md font-semibold text-on-surface">
                           2. Product Item (Name / Title)
                         </span>
-                        {defaultFields.productItem.required && defaultFields.productItem.enabled && (
-                          <span className="text-[10px] text-error font-bold uppercase">Required</span>
-                        )}
+                        {defaultFields.productItem.required &&
+                          defaultFields.productItem.enabled && (
+                            <span className="text-[10px] text-error font-bold uppercase">
+                              Required
+                            </span>
+                          )}
                       </div>
                       <p className="text-[11px] text-on-surface-variant mt-0.5">
                         Primary item label (e.g. Bridal Bangles, Silk Scarf).
@@ -1007,7 +1043,9 @@ export const CategoryFieldManager: React.FC = () => {
                   <div className="p-3 flex items-center justify-between hover:bg-surface-container-low transition-colors">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[18px] text-secondary">notes</span>
+                        <span className="material-symbols-outlined text-[18px] text-secondary">
+                          notes
+                        </span>
                         <span className="font-label-md text-label-md font-semibold text-on-surface">
                           3. Product Description
                         </span>
@@ -1048,12 +1086,16 @@ export const CategoryFieldManager: React.FC = () => {
                   <div className="p-3 flex items-center justify-between hover:bg-surface-container-low transition-colors">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[18px] text-secondary">currency_rupee</span>
+                        <span className="material-symbols-outlined text-[18px] text-secondary">
+                          currency_rupee
+                        </span>
                         <span className="font-label-md text-label-md font-semibold text-on-surface">
                           4. Price (₹)
                         </span>
                         {defaultFields.price.required && defaultFields.price.enabled && (
-                          <span className="text-[10px] text-error font-bold uppercase">Required</span>
+                          <span className="text-[10px] text-error font-bold uppercase">
+                            Required
+                          </span>
                         )}
                       </div>
                       <p className="text-[11px] text-on-surface-variant mt-0.5">
@@ -1089,7 +1131,9 @@ export const CategoryFieldManager: React.FC = () => {
                   <div className="p-3 flex items-center justify-between hover:bg-surface-container-low transition-colors">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[18px] text-secondary">percent</span>
+                        <span className="material-symbols-outlined text-[18px] text-secondary">
+                          percent
+                        </span>
                         <span className="font-label-md text-label-md font-semibold text-on-surface">
                           5. GST (%)
                         </span>
@@ -1110,7 +1154,9 @@ export const CategoryFieldManager: React.FC = () => {
                           max="100"
                           disabled={!defaultFields.gst.enabled}
                           value={defaultFields.gst.defaultValue ?? 0}
-                          onChange={(e) => handleDefaultFieldValueChange('gst', parseFloat(e.target.value) || 0)}
+                          onChange={(e) =>
+                            handleDefaultFieldValueChange('gst', parseFloat(e.target.value) || 0)
+                          }
                           className="w-14 h-7 px-1.5 bg-surface-container border border-outline-variant/40 rounded text-center text-xs font-mono"
                         />
                       </div>
@@ -1142,7 +1188,9 @@ export const CategoryFieldManager: React.FC = () => {
                   <div className="p-3 flex items-center justify-between hover:bg-surface-container-low transition-colors">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[18px] text-secondary">numbers</span>
+                        <span className="material-symbols-outlined text-[18px] text-secondary">
+                          numbers
+                        </span>
                         <span className="font-label-md text-label-md font-semibold text-on-surface">
                           6. Item Count (Quantity)
                         </span>
@@ -1162,7 +1210,12 @@ export const CategoryFieldManager: React.FC = () => {
                           min="1"
                           disabled={!defaultFields.itemCount.enabled}
                           value={defaultFields.itemCount.defaultValue ?? 1}
-                          onChange={(e) => handleDefaultFieldValueChange('itemCount', parseInt(e.target.value) || 1)}
+                          onChange={(e) =>
+                            handleDefaultFieldValueChange(
+                              'itemCount',
+                              parseInt(e.target.value) || 1
+                            )
+                          }
                           className="w-14 h-7 px-1.5 bg-surface-container border border-outline-variant/40 rounded text-center text-xs font-mono"
                         />
                       </div>
@@ -1194,7 +1247,9 @@ export const CategoryFieldManager: React.FC = () => {
                   <div className="p-3 flex items-center justify-between hover:bg-surface-container-low transition-colors">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[18px] text-secondary">loyalty</span>
+                        <span className="material-symbols-outlined text-[18px] text-secondary">
+                          loyalty
+                        </span>
                         <span className="font-label-md text-label-md font-semibold text-on-surface">
                           7. Discount
                         </span>
@@ -1238,7 +1293,9 @@ export const CategoryFieldManager: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-outline-variant/20">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary text-[20px]">dynamic_form</span>
+                      <span className="material-symbols-outlined text-primary text-[20px]">
+                        dynamic_form
+                      </span>
                       <h4 className="font-headline-sm text-headline-sm text-on-surface">
                         Custom Category Fields ({customFields.length})
                       </h4>
@@ -1249,7 +1306,8 @@ export const CategoryFieldManager: React.FC = () => {
                       )}
                     </div>
                     <p className="text-xs text-on-surface-variant mt-0.5">
-                      Tailor dynamic fields for this category. Select fields to copy (Ctrl+C) and paste (Ctrl+V) across categories.
+                      Tailor dynamic fields for this category. Select fields to copy (Ctrl+C) and
+                      paste (Ctrl+V) across categories.
                     </p>
                   </div>
 
@@ -1265,7 +1323,11 @@ export const CategoryFieldManager: React.FC = () => {
                         <span className="material-symbols-outlined text-[16px]">
                           {allFieldsSelected ? 'deselect' : 'select_all'}
                         </span>
-                        <span>{allFieldsSelected ? 'Deselect All' : `Select All (${customFields.length})`}</span>
+                        <span>
+                          {allFieldsSelected
+                            ? 'Deselect All'
+                            : `Select All (${customFields.length})`}
+                        </span>
                       </button>
                     )}
 
@@ -1279,11 +1341,19 @@ export const CategoryFieldManager: React.FC = () => {
                           ? 'bg-surface-container-high hover:bg-surface-container-highest text-primary border-primary/30'
                           : 'bg-surface-container-low text-on-surface-variant/40 border-outline-variant/20 cursor-not-allowed opacity-50'
                       }`}
-                      title={selectedFieldIds.size > 0 ? 'Copy selected fields (Ctrl+C)' : 'Select fields to copy'}
+                      title={
+                        selectedFieldIds.size > 0
+                          ? 'Copy selected fields (Ctrl+C)'
+                          : 'Select fields to copy'
+                      }
                     >
                       <span className="material-symbols-outlined text-[16px]">content_copy</span>
-                      <span>Copy{selectedFieldIds.size > 0 ? ` (${selectedFieldIds.size})` : ''}</span>
-                      <span className="text-[10px] font-mono opacity-70 hidden sm:inline">[Ctrl+C]</span>
+                      <span>
+                        Copy{selectedFieldIds.size > 0 ? ` (${selectedFieldIds.size})` : ''}
+                      </span>
+                      <span className="text-[10px] font-mono opacity-70 hidden sm:inline">
+                        [Ctrl+C]
+                      </span>
                     </button>
 
                     {/* Paste Button */}
@@ -1296,11 +1366,17 @@ export const CategoryFieldManager: React.FC = () => {
                           ? 'bg-secondary/15 hover:bg-secondary/25 text-secondary border-secondary/30'
                           : 'bg-surface-container-low text-on-surface-variant/40 border-outline-variant/20 cursor-not-allowed opacity-50'
                       }`}
-                      title={copiedFields.length > 0 ? `Paste ${copiedFields.length} copied field(s) (Ctrl+V)` : 'Clipboard is empty'}
+                      title={
+                        copiedFields.length > 0
+                          ? `Paste ${copiedFields.length} copied field(s) (Ctrl+V)`
+                          : 'Clipboard is empty'
+                      }
                     >
                       <span className="material-symbols-outlined text-[16px]">content_paste</span>
                       <span>Paste{copiedFields.length > 0 ? ` (${copiedFields.length})` : ''}</span>
-                      <span className="text-[10px] font-mono opacity-70 hidden sm:inline">[Ctrl+V]</span>
+                      <span className="text-[10px] font-mono opacity-70 hidden sm:inline">
+                        [Ctrl+V]
+                      </span>
                     </button>
 
                     {/* Add Custom Field */}
@@ -1328,7 +1404,8 @@ export const CategoryFieldManager: React.FC = () => {
                       No custom fields for {selectedCategory.categoryName} yet
                     </p>
                     <p className="text-xs text-on-surface-variant max-w-sm mx-auto">
-                      Click "Add Field" to add specific fields, paste copied fields from clipboard, or use "Copy fields from" to clone an entire category.
+                      Click "Add Field" to add specific fields, paste copied fields from clipboard,
+                      or use "Copy fields from" to clone an entire category.
                     </p>
                   </div>
                 ) : (
@@ -1345,8 +1422,8 @@ export const CategoryFieldManager: React.FC = () => {
                             isInvalidSeparate
                               ? 'border-error/80 bg-error-container/10'
                               : selectedFieldIds.has(field.id)
-                              ? 'bg-primary/5 border-primary/50 shadow-xs'
-                              : 'bg-surface-container-low border-outline-variant/30 hover:border-outline-variant'
+                                ? 'bg-primary/5 border-primary/50 shadow-xs'
+                                : 'bg-surface-container-low border-outline-variant/30 hover:border-outline-variant'
                           }`}
                         >
                           <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -1356,7 +1433,11 @@ export const CategoryFieldManager: React.FC = () => {
                               checked={selectedFieldIds.has(field.id)}
                               onChange={() => handleToggleSelectField(field.id)}
                               className="rounded text-primary focus:ring-primary h-4 w-4 cursor-pointer shrink-0"
-                              title={selectedFieldIds.has(field.id) ? 'Deselect field' : 'Select field for copying'}
+                              title={
+                                selectedFieldIds.has(field.id)
+                                  ? 'Deselect field'
+                                  : 'Select field for copying'
+                              }
                             />
 
                             <div className="min-w-0 flex-1">
@@ -1364,55 +1445,67 @@ export const CategoryFieldManager: React.FC = () => {
                                 <span className="font-label-md text-label-md font-semibold text-on-surface">
                                   {field.name}
                                 </span>
-                              <span className={`font-mono text-[10px] font-semibold px-2 py-0.5 rounded border uppercase ${getTypeBadge(field.type)}`}>
-                                {field.type}
-                              </span>
-                              {field.required && (
-                                <span className="text-[10px] text-error font-bold uppercase">Required</span>
-                              )}
+                                <span
+                                  className={`font-mono text-[10px] font-semibold px-2 py-0.5 rounded border uppercase ${getTypeBadge(field.type)}`}
+                                >
+                                  {field.type}
+                                </span>
+                                {field.required && (
+                                  <span className="text-[10px] text-error font-bold uppercase">
+                                    Required
+                                  </span>
+                                )}
 
-                              {/* Bill Placement Badge */}
-                              {field.billColumnPlacement === 'separate' ? (
-                                isInvalidSeparate ? (
-                                  <span className="flex items-center gap-1 text-[11px] font-bold text-error bg-error/10 px-2 py-0.5 rounded border border-error/30">
-                                    <span className="material-symbols-outlined text-[14px]">cancel</span>
-                                    <span>Missing Column Header</span>
+                                {/* Bill Placement Badge */}
+                                {field.billColumnPlacement === 'separate' ? (
+                                  isInvalidSeparate ? (
+                                    <span className="flex items-center gap-1 text-[11px] font-bold text-error bg-error/10 px-2 py-0.5 rounded border border-error/30">
+                                      <span className="material-symbols-outlined text-[14px]">
+                                        cancel
+                                      </span>
+                                      <span>Missing Column Header</span>
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-1 text-[11px] font-mono text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                                      <span className="material-symbols-outlined text-[14px]">
+                                        add_column_right
+                                      </span>
+                                      <span>Separate Col: "{field.billColumnHeader}"</span>
+                                    </span>
+                                  )
+                                ) : field.billColumnPlacement === 'hidden' ? (
+                                  <span className="text-[10px] text-on-surface-variant/70 bg-surface-container px-2 py-0.5 rounded font-mono">
+                                    Not on Bill
                                   </span>
                                 ) : (
-                                  <span className="flex items-center gap-1 text-[11px] font-mono text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
-                                    <span className="material-symbols-outlined text-[14px]">add_column_right</span>
-                                    <span>Separate Col: "{field.billColumnHeader}"</span>
+                                  <span className="flex items-center gap-1 text-[11px] font-mono text-secondary bg-secondary/10 px-2 py-0.5 rounded border border-secondary/20">
+                                    <span className="material-symbols-outlined text-[14px]">
+                                      view_column
+                                    </span>
+                                    <span>In: {field.billTargetColumn || 'description'}</span>
                                   </span>
-                                )
-                              ) : field.billColumnPlacement === 'hidden' ? (
-                                <span className="text-[10px] text-on-surface-variant/70 bg-surface-container px-2 py-0.5 rounded font-mono">
-                                  Not on Bill
-                                </span>
-                              ) : (
-                                <span className="flex items-center gap-1 text-[11px] font-mono text-secondary bg-secondary/10 px-2 py-0.5 rounded border border-secondary/20">
-                                  <span className="material-symbols-outlined text-[14px]">view_column</span>
-                                  <span>In: {field.billTargetColumn || 'description'}</span>
-                                </span>
-                              )}
-                              {field.textCasing === 'uppercase' && (
-                                <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
-                                  ALL CAPS
-                                </span>
-                              )}
-                              {field.textCasing === 'lowercase' && (
-                                <span className="text-[10px] font-mono font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/30">
-                                  all lower
-                                </span>
-                              )}
-                            </div>
-
-                            {field.type === 'select' && field.options && field.options.length > 0 && (
-                              <div className="text-[11px] text-on-surface-variant mt-1 truncate">
-                                Options: {field.options.join(', ')}
+                                )}
+                                {field.textCasing === 'uppercase' && (
+                                  <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
+                                    ALL CAPS
+                                  </span>
+                                )}
+                                {field.textCasing === 'lowercase' && (
+                                  <span className="text-[10px] font-mono font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/30">
+                                    all lower
+                                  </span>
+                                )}
                               </div>
-                            )}
+
+                              {field.type === 'select' &&
+                                field.options &&
+                                field.options.length > 0 && (
+                                  <div className="text-[11px] text-on-surface-variant mt-1 truncate">
+                                    Options: {field.options.join(', ')}
+                                  </div>
+                                )}
+                            </div>
                           </div>
-                        </div>
 
                           {/* Controls (Move Up/Down, Edit, Delete) */}
                           <div className="flex items-center gap-1 shrink-0">
@@ -1423,7 +1516,9 @@ export const CategoryFieldManager: React.FC = () => {
                               className="p-1 text-on-surface-variant hover:text-on-surface disabled:opacity-20 cursor-pointer"
                               title="Move Up (Stacks higher)"
                             >
-                              <span className="material-symbols-outlined text-[18px]">arrow_upward</span>
+                              <span className="material-symbols-outlined text-[18px]">
+                                arrow_upward
+                              </span>
                             </button>
                             <button
                               type="button"
@@ -1432,7 +1527,9 @@ export const CategoryFieldManager: React.FC = () => {
                               className="p-1 text-on-surface-variant hover:text-on-surface disabled:opacity-20 cursor-pointer"
                               title="Move Down (Stacks lower)"
                             >
-                              <span className="material-symbols-outlined text-[18px]">arrow_downward</span>
+                              <span className="material-symbols-outlined text-[18px]">
+                                arrow_downward
+                              </span>
                             </button>
                             <button
                               type="button"
@@ -1460,7 +1557,6 @@ export const CategoryFieldManager: React.FC = () => {
                   </div>
                 )}
               </div>
-
             </div>
           ) : (
             <div className="bg-surface-container-lowest p-12 text-center rounded-DEFAULT border border-outline-variant/30 text-on-surface-variant">
@@ -1473,13 +1569,13 @@ export const CategoryFieldManager: React.FC = () => {
       {/* Add Custom Field Modal */}
       <AddFieldModal
         isOpen={isFieldModalOpen}
-        fieldToEdit={editingField as any}
+        fieldToEdit={editingField}
         existingSeparateHeaders={existingSeparateHeaders}
         onClose={() => {
           setIsFieldModalOpen(false)
           setEditingField(null)
         }}
-        onSave={(field) => handleSaveCustomField(field as any)}
+        onSave={(field) => handleSaveCustomField(field)}
       />
 
       {/* Create New Category Dialog */}
@@ -1591,7 +1687,11 @@ export const CategoryFieldManager: React.FC = () => {
                     )}
                   </h3>
                   <p className="text-xs text-on-surface-variant">
-                    A field named <strong>"{conflictState.conflicts[conflictState.currentIndex].incoming.name}"</strong> already exists in category <strong>"{selectedCategory?.categoryName}"</strong>.
+                    A field named{' '}
+                    <strong>
+                      "{conflictState.conflicts[conflictState.currentIndex].incoming.name}"
+                    </strong>{' '}
+                    already exists in category <strong>"{selectedCategory?.categoryName}"</strong>.
                   </p>
                 </div>
               </div>
@@ -1615,7 +1715,9 @@ export const CategoryFieldManager: React.FC = () => {
                       <span className="material-symbols-outlined text-[14px]">inventory_2</span>
                       <span>Existing in Category</span>
                     </span>
-                    <span className={`font-mono text-[10px] font-semibold px-1.5 py-0.2 rounded border uppercase ${getTypeBadge(conflictState.conflicts[conflictState.currentIndex].existing.type)}`}>
+                    <span
+                      className={`font-mono text-[10px] font-semibold px-1.5 py-0.2 rounded border uppercase ${getTypeBadge(conflictState.conflicts[conflictState.currentIndex].existing.type)}`}
+                    >
                       {conflictState.conflicts[conflictState.currentIndex].existing.type}
                     </span>
                   </div>
@@ -1626,25 +1728,33 @@ export const CategoryFieldManager: React.FC = () => {
                     <div>
                       Required:{' '}
                       <span className="font-medium text-on-surface">
-                        {conflictState.conflicts[conflictState.currentIndex].existing.required ? 'Yes' : 'No'}
+                        {conflictState.conflicts[conflictState.currentIndex].existing.required
+                          ? 'Yes'
+                          : 'No'}
                       </span>
                     </div>
                     <div>
                       Casing:{' '}
                       <span className="font-medium text-on-surface uppercase">
-                        {conflictState.conflicts[conflictState.currentIndex].existing.textCasing || 'normal'}
+                        {conflictState.conflicts[conflictState.currentIndex].existing.textCasing ||
+                          'normal'}
                       </span>
                     </div>
                     <div>
                       Placement:{' '}
                       <span className="font-medium text-on-surface">
-                        {conflictState.conflicts[conflictState.currentIndex].existing.billColumnPlacement || 'merged'}
+                        {conflictState.conflicts[conflictState.currentIndex].existing
+                          .billColumnPlacement || 'merged'}
                       </span>
                     </div>
                     {conflictState.conflicts[conflictState.currentIndex].existing.options &&
-                      conflictState.conflicts[conflictState.currentIndex].existing.options!.length > 0 && (
+                      conflictState.conflicts[conflictState.currentIndex].existing.options!.length >
+                        0 && (
                         <div className="truncate">
-                          Options: {conflictState.conflicts[conflictState.currentIndex].existing.options!.join(', ')}
+                          Options:{' '}
+                          {conflictState.conflicts[
+                            conflictState.currentIndex
+                          ].existing.options!.join(', ')}
                         </div>
                       )}
                   </div>
@@ -1657,7 +1767,9 @@ export const CategoryFieldManager: React.FC = () => {
                       <span className="material-symbols-outlined text-[14px]">content_paste</span>
                       <span>Copied (Incoming)</span>
                     </span>
-                    <span className={`font-mono text-[10px] font-semibold px-1.5 py-0.2 rounded border uppercase ${getTypeBadge(conflictState.conflicts[conflictState.currentIndex].incoming.type)}`}>
+                    <span
+                      className={`font-mono text-[10px] font-semibold px-1.5 py-0.2 rounded border uppercase ${getTypeBadge(conflictState.conflicts[conflictState.currentIndex].incoming.type)}`}
+                    >
                       {conflictState.conflicts[conflictState.currentIndex].incoming.type}
                     </span>
                   </div>
@@ -1668,25 +1780,33 @@ export const CategoryFieldManager: React.FC = () => {
                     <div>
                       Required:{' '}
                       <span className="font-medium text-on-surface">
-                        {conflictState.conflicts[conflictState.currentIndex].incoming.required ? 'Yes' : 'No'}
+                        {conflictState.conflicts[conflictState.currentIndex].incoming.required
+                          ? 'Yes'
+                          : 'No'}
                       </span>
                     </div>
                     <div>
                       Casing:{' '}
                       <span className="font-medium text-on-surface uppercase">
-                        {conflictState.conflicts[conflictState.currentIndex].incoming.textCasing || 'normal'}
+                        {conflictState.conflicts[conflictState.currentIndex].incoming.textCasing ||
+                          'normal'}
                       </span>
                     </div>
                     <div>
                       Placement:{' '}
                       <span className="font-medium text-on-surface">
-                        {conflictState.conflicts[conflictState.currentIndex].incoming.billColumnPlacement || 'merged'}
+                        {conflictState.conflicts[conflictState.currentIndex].incoming
+                          .billColumnPlacement || 'merged'}
                       </span>
                     </div>
                     {conflictState.conflicts[conflictState.currentIndex].incoming.options &&
-                      conflictState.conflicts[conflictState.currentIndex].incoming.options!.length > 0 && (
+                      conflictState.conflicts[conflictState.currentIndex].incoming.options!.length >
+                        0 && (
                         <div className="truncate">
-                          Options: {conflictState.conflicts[conflictState.currentIndex].incoming.options!.join(', ')}
+                          Options:{' '}
+                          {conflictState.conflicts[
+                            conflictState.currentIndex
+                          ].incoming.options!.join(', ')}
                         </div>
                       )}
                   </div>
@@ -1713,7 +1833,8 @@ export const CategoryFieldManager: React.FC = () => {
                       Overwrite (Replace existing field)
                     </div>
                     <p className="text-[11px] text-on-surface-variant mt-0.5">
-                      Replace the existing field in this category with the copied field's configuration.
+                      Replace the existing field in this category with the copied field's
+                      configuration.
                     </p>
                   </div>
                 </button>
@@ -1732,7 +1853,8 @@ export const CategoryFieldManager: React.FC = () => {
                       Keep Both (Rename copied field)
                     </div>
                     <p className="text-[11px] text-on-surface-variant mt-0.5">
-                      Keep the existing field and paste this as a new field named "{conflictState.conflicts[conflictState.currentIndex].incoming.name} (Copy)".
+                      Keep the existing field and paste this as a new field named "
+                      {conflictState.conflicts[conflictState.currentIndex].incoming.name} (Copy)".
                     </p>
                   </div>
                 </button>
@@ -1767,7 +1889,8 @@ export const CategoryFieldManager: React.FC = () => {
                     className="rounded text-primary focus:ring-primary h-4 w-4 cursor-pointer"
                   />
                   <span className="font-medium">
-                    Do this for all remaining conflicts ({conflictState.conflicts.length - conflictState.currentIndex} remaining)
+                    Do this for all remaining conflicts (
+                    {conflictState.conflicts.length - conflictState.currentIndex} remaining)
                   </span>
                 </label>
 
@@ -1797,7 +1920,8 @@ export const CategoryFieldManager: React.FC = () => {
                   Delete Category?
                 </h3>
                 <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
-                  Are you sure you want to permanently delete category "{selectedCategory.categoryName}" ({selectedCategory.categoryId})?
+                  Are you sure you want to permanently delete category "
+                  {selectedCategory.categoryName}" ({selectedCategory.categoryId})?
                 </p>
               </div>
             </div>

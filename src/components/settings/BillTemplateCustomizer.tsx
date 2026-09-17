@@ -120,8 +120,8 @@ export const BillTemplateCustomizer: React.FC<BillTemplateCustomizerProps> = ({
               Bill & Receipt Field Customizer
             </h2>
             <p className="font-body-sm text-body-sm text-on-surface-variant text-[11px] mt-0.5">
-              Customize field titles, table columns, and document disclaimers for Thermal & Full-Page
-              Commercial Invoices.
+              Customize field titles, table columns, and document disclaimers for Thermal &
+              Full-Page Commercial Invoices.
             </p>
           </div>
         </div>
@@ -135,7 +135,8 @@ export const BillTemplateCustomizer: React.FC<BillTemplateCustomizerProps> = ({
               visibility
             </span>
             <span>
-              Preview {settings.invoiceFormat === 'a4' ? 'Commercial Invoice (Vertical)' : 'Thermal Bill'}{' '}
+              Preview{' '}
+              {settings.invoiceFormat === 'a4' ? 'Commercial Invoice (Vertical)' : 'Thermal Bill'}{' '}
               Layout
             </span>
           </button>
@@ -443,7 +444,10 @@ export const BillTemplateCustomizer: React.FC<BillTemplateCustomizerProps> = ({
               </div>
               <input
                 type="text"
-                value={template.signatoryText ?? `For ${settings.storeName || settings.businessName || 'Store Outlet'}`}
+                value={
+                  template.signatoryText ??
+                  `For ${settings.storeName || settings.businessName || 'Store Outlet'}`
+                }
                 onChange={(e) => updateTmpl('signatoryText', e.target.value)}
                 placeholder={`For ${settings.storeName || settings.businessName || 'Store Outlet'}`}
                 className="w-full p-2 px-3 bg-surface-container-lowest border border-outline-variant/60 rounded-DEFAULT text-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-2xs"

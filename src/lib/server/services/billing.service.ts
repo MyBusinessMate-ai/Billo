@@ -97,13 +97,21 @@ export const billingService = {
     customerEmail?: string
     customerGstin?: string
     items: Array<{
-      productId: string
-      productName: string
+      productId?: string
+      productName?: string
+      itemName?: string
+      description?: string
       categoryId: string
       categoryName: string
       quantity: number
       unitPrice: number
       total: number
+      hsn?: string
+      gstPercent?: number
+      discountAmount?: number
+      discountPercent?: number
+      customFields?: Record<string, any>
+      customFieldConfigs?: CategoryCustomField[]
     }>
     subtotal: number
     taxPercent: number
@@ -119,12 +127,20 @@ export const billingService = {
     let generatedBillingId = `INV-${year}-${Math.floor(100000 + Math.random() * 900000)}`
 
     const firestoreItems: FirestoreBillingItem[] = invoiceData.items.map((it) => ({
+      ...(it.productId ? { productId: it.productId } : {}),
       categoryId: it.categoryId || 'CAT-000001',
       categoryName: it.categoryName || 'General',
-      itemName: it.productName,
+      itemName: it.productName || it.itemName || 'Item',
+      ...(it.description ? { description: it.description } : {}),
       quantity: it.quantity,
       unitPrice: it.unitPrice,
       total: it.total,
+      ...(it.hsn ? { hsn: it.hsn } : {}),
+      ...(it.gstPercent !== undefined ? { gstPercent: it.gstPercent } : {}),
+      ...(it.discountAmount !== undefined ? { discountAmount: it.discountAmount } : {}),
+      ...(it.discountPercent !== undefined ? { discountPercent: it.discountPercent } : {}),
+      ...(it.customFields ? { customFields: it.customFields } : {}),
+      ...(it.customFieldConfigs ? { customFieldConfigs: it.customFieldConfigs } : {}),
     }))
 
     const nowSeconds = Math.floor(Date.now() / 1000)
@@ -132,9 +148,7 @@ export const billingService = {
     const billingDoc: FirestoreBilling = {
       billingId: generatedBillingId,
       ...(invoiceData.customerId ? { customerId: invoiceData.customerId } : {}),
-      ...(invoiceData.customerName
-        ? { customerName: invoiceData.customerName.toUpperCase() }
-        : {}),
+      ...(invoiceData.customerName ? { customerName: invoiceData.customerName.toUpperCase() } : {}),
       ...(invoiceData.customerPhone ? { customerPhone: invoiceData.customerPhone } : {}),
       ...(invoiceData.customerEmail
         ? { customerEmail: invoiceData.customerEmail.toLowerCase() }
@@ -164,7 +178,10 @@ export const billingService = {
             generatedBillingId = await getNextSequentialId(transaction as any, 'billing', year)
             billingDoc.billingId = generatedBillingId
           } catch (counterErr) {
-            console.warn('[BillingService] Counter transaction skipped, using fallback ID:', counterErr)
+            console.warn(
+              '[BillingService] Counter transaction skipped, using fallback ID:',
+              counterErr
+            )
           }
 
           // 2. Deduct inventory stock for each product in transaction (only for real catalog products)

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import type { BillingInvoice } from '../../types/pos'
 import { usePOS } from '../../context/POSContext'
-import { generateUPIUrl, formatINR } from '../../utils/formatters'
+import { generateUPIUrl, formatINR, applyTextCasing } from '../../utils/formatters'
 import { authService } from '../../lib/server/services/auth.service'
 
 interface InvoiceDetailsDrawerProps {
@@ -277,7 +277,7 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
               {invoice.items.map((item, idx) => (
                 <div
                   key={idx}
-                  className={`grid grid-cols-12 items-center py-2.5 px-3 ${
+                  className={`grid grid-cols-12 items-start py-2.5 px-3 ${
                     idx % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'
                   }`}
                 >
@@ -285,9 +285,41 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
                     <span className="font-body-sm text-body-sm text-on-surface font-semibold leading-tight truncate">
                       {item.name}
                     </span>
-                    <span className="font-label-sm text-[10px] text-on-surface-variant uppercase">
-                      {item.category}
-                    </span>
+                    {item.description && (
+                      <div className="text-[11px] text-on-surface-variant/80 italic mt-0.5 line-clamp-2">
+                        {item.description}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-1 mt-1">
+                      <span className="font-label-sm text-[10px] text-on-surface-variant uppercase bg-surface-container px-1 py-0.5 rounded">
+                        {item.category}
+                      </span>
+                      {item.gstPercent !== undefined && item.gstPercent > 0 && (
+                        <span className="px-1 py-0.5 text-[9px] rounded bg-secondary-container text-on-secondary-container font-mono font-medium">
+                          GST {item.gstPercent}%
+                        </span>
+                      )}
+                      {item.discountAmount !== undefined && item.discountAmount > 0 && (
+                        <span className="px-1 py-0.5 text-[9px] rounded bg-tertiary-container text-on-tertiary-container font-mono font-medium">
+                          -₹{item.discountAmount.toFixed(2)} Off
+                        </span>
+                      )}
+                      {item.customFields &&
+                        Object.entries(item.customFields).map(([k, v]) => {
+                          if (v === undefined || v === null || v === '') return null
+                          const config = item.customFieldConfigs?.find((c) => c.id === k)
+                          const valStr = applyTextCasing(v, config?.textCasing)
+                          const label = config ? `${config.name}: ${valStr}` : valStr
+                          return (
+                            <span
+                              key={k}
+                              className="px-1.5 py-0.5 text-[9px] rounded bg-surface-container-high text-on-surface-variant font-mono"
+                            >
+                              {label}
+                            </span>
+                          )
+                        })}
+                    </div>
                   </div>
                   <div className="col-span-2 text-right font-mono-numeric-sm text-mono-numeric-sm text-on-surface">
                     ₹{item.price}

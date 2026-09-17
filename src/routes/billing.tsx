@@ -297,7 +297,10 @@ function MakeBillingPage() {
   const handleOpenPreview = () => {
     // If there are items in the cart, preview the live cart
     if (items.length > 0) {
-      const subtotal = items.reduce((sum, item) => sum + (item.total ?? item.price * item.quantity), 0)
+      const subtotal = items.reduce(
+        (sum, item) => sum + (item.total ?? item.price * item.quantity),
+        0
+      )
       const defaultTaxPercent =
         typeof settings.taxRatePercent === 'number' ? settings.taxRatePercent : 0
       const hasItemGst = items.some((item) => item.gstPercent !== undefined)

@@ -55,8 +55,16 @@ export const CategoryDefaultFieldsConfigSchema = z.object({
   productItem: CategoryDefaultFieldSettingSchema.default({ enabled: true, required: true }),
   productDescription: CategoryDefaultFieldSettingSchema.default({ enabled: true, required: false }),
   price: CategoryDefaultFieldSettingSchema.default({ enabled: true, required: true }),
-  gst: CategoryDefaultFieldSettingSchema.default({ enabled: true, required: false, defaultValue: 0 }),
-  itemCount: CategoryDefaultFieldSettingSchema.default({ enabled: true, required: true, defaultValue: 1 }),
+  gst: CategoryDefaultFieldSettingSchema.default({
+    enabled: true,
+    required: false,
+    defaultValue: 0,
+  }),
+  itemCount: CategoryDefaultFieldSettingSchema.default({
+    enabled: true,
+    required: true,
+    defaultValue: 1,
+  }),
   discount: CategoryDefaultFieldSettingSchema.default({ enabled: true, required: false }),
 })
 export type CategoryDefaultFieldsConfig = z.infer<typeof CategoryDefaultFieldsConfigSchema>
@@ -82,7 +90,10 @@ export const CategoryCustomFieldSchema = z.object({
   showInBilling: z.boolean().optional().default(true),
   showInReceipt: z.boolean().optional().default(true),
   billColumnPlacement: z.enum(['separate', 'merged', 'hidden']).optional().default('merged'),
-  billTargetColumn: z.enum(['description', 'price', 'quantity', 'gst', 'discount']).optional().default('description'),
+  billTargetColumn: z
+    .enum(['description', 'price', 'quantity', 'gst', 'discount'])
+    .optional()
+    .default('description'),
   billColumnHeader: z.string().optional(),
   textCasing: z.enum(['uppercase', 'lowercase', 'normal']).optional().default('normal'),
   order: z.number().optional().default(0),

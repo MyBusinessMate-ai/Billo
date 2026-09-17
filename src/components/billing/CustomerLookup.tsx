@@ -72,7 +72,9 @@ export const CustomerLookup: React.FC<CustomerLookupProps> = ({ customer, onChan
         name: selectedCustomerForBilling.name.toUpperCase(),
         phone: selectedCustomerForBilling.phone,
         email: (selectedCustomerForBilling.email || '').toLowerCase(),
-        gstin: selectedCustomerForBilling.gstin ? selectedCustomerForBilling.gstin.toUpperCase() : undefined,
+        gstin: selectedCustomerForBilling.gstin
+          ? selectedCustomerForBilling.gstin.toUpperCase()
+          : undefined,
         isWalkIn: false,
       })
       setSelectedCustomerForBilling(null)

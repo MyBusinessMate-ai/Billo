@@ -48,15 +48,8 @@ interface POSContextType {
     basePrice?: number,
     extraData?: Partial<Category>
   ) => Promise<Category>
-  updateCategory: (
-    categoryId: string,
-    data: Partial<Category>,
-    silent?: boolean
-  ) => Promise<void>
-  copyCategoryFields: (
-    sourceCategoryId: string,
-    targetCategoryId: string
-  ) => Promise<void>
+  updateCategory: (categoryId: string, data: Partial<Category>, silent?: boolean) => Promise<void>
+  copyCategoryFields: (sourceCategoryId: string, targetCategoryId: string) => Promise<void>
   addBulkCategories: (
     categoryNames: Array<string | { categoryName: string; basePrice?: number }>
   ) => Promise<{ addedCount: number; skippedCount: number }>
@@ -381,11 +374,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }
 
-  const updateCategory = async (
-    categoryId: string,
-    data: Partial<Category>,
-    silent?: boolean
-  ) => {
+  const updateCategory = async (categoryId: string, data: Partial<Category>, silent?: boolean) => {
     try {
       await categoryService.updateCategory(categoryId, data)
       setCategories((prev) =>
@@ -640,8 +629,12 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const timeStamp = `${currentDate || '2026-09-08'} ${currentTime ? currentTime.split(' ')[1] : '12:00:00'}`
 
       const normName = invoiceData.customer.name.trim().toUpperCase()
-      const normEmail = invoiceData.customer.email ? invoiceData.customer.email.trim().toLowerCase() : undefined
-      const normGstin = invoiceData.customer.gstin ? invoiceData.customer.gstin.trim().toUpperCase() : undefined
+      const normEmail = invoiceData.customer.email
+        ? invoiceData.customer.email.trim().toLowerCase()
+        : undefined
+      const normGstin = invoiceData.customer.gstin
+        ? invoiceData.customer.gstin.trim().toUpperCase()
+        : undefined
 
       if (existing) {
         assignedCustomerId = existing.id
@@ -750,11 +743,19 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         items: normalizedItems.map((it) => ({
           productId: it.productId,
           productName: it.name,
+          itemName: it.name,
+          description: it.description,
           categoryId: findCatId(it.category || 'General'),
           categoryName: it.category || 'General',
           quantity: it.quantity,
           unitPrice: it.price,
           total: it.total,
+          hsn: it.hsn,
+          gstPercent: it.gstPercent,
+          discountAmount: it.discountAmount,
+          discountPercent: it.discountPercent,
+          customFields: it.customFields,
+          customFieldConfigs: it.customFieldConfigs,
         })),
         subtotal: invoiceData.subtotal,
         taxPercent: invoiceData.taxPercent,
