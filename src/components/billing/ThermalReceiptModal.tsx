@@ -121,6 +121,23 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
         }, 0)
       : invoice.subtotal || 0
 
+  const billDiscount = invoice.discountAmount || 0
+  const hasItemDiscounts = totalItemDiscounts > 0
+  const hasBillDiscount = billDiscount > 0
+  const totalAllDiscounts = totalItemDiscounts + billDiscount
+
+  // GST Section 15(3): Deduct discount before computing taxes
+  const finalTaxableValue = Math.max(0, taxableSubtotal - billDiscount)
+  const discountRatio = taxableSubtotal > 0 ? finalTaxableValue / taxableSubtotal : 1
+
+  const storeStateCode = settings.gstin ? settings.gstin.trim().slice(0, 2) : '36'
+  const customerGstin = invoice.customer.gstin ? invoice.customer.gstin.trim().toUpperCase() : ''
+  const customerStateCode = customerGstin ? customerGstin.slice(0, 2) : storeStateCode
+  const isInterState =
+    invoice.isInterState !== undefined
+      ? invoice.isInterState
+      : Boolean(customerGstin && customerStateCode && customerStateCode !== storeStateCode)
+
   const computedTaxAmount =
     invoice.items && invoice.items.length > 0
       ? invoice.items.reduce((sum, item) => {
@@ -128,19 +145,20 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
           const lineDisc = item.discountAmount || 0
           const lineTaxable =
             typeof item.total === 'number' ? item.total : Math.max(0, lineGross - lineDisc)
+          const discountedLine = lineTaxable * discountRatio
           const itemTaxRate = item.gstPercent !== undefined ? item.gstPercent : fallbackTaxPercent
-          return sum + (lineTaxable * itemTaxRate) / 100
+          return sum + (discountedLine * itemTaxRate) / 100
         }, 0)
-      : invoice.taxAmount || 0
+      : (finalTaxableValue * fallbackTaxPercent) / 100
 
   const taxAmount = typeof invoice.taxAmount === 'number' ? invoice.taxAmount : computedTaxAmount
   const hasTax = taxAmount > 0
-  const billDiscount = invoice.discountAmount || 0
-  const hasItemDiscounts = totalItemDiscounts > 0
-  const hasBillDiscount = billDiscount > 0
-  const totalAllDiscounts = totalItemDiscounts + billDiscount
-  const netTotal =
-    invoice.netTotal || Math.round(Math.max(0, taxableSubtotal + taxAmount - billDiscount))
+  const halfTaxAmount = hasTax ? taxAmount / 2 : 0
+
+  const exactNet = Math.max(0, finalTaxableValue + taxAmount)
+  const netTotal = invoice.netTotal || Math.round(exactNet)
+  const roundOff =
+    invoice.roundOff !== undefined ? invoice.roundOff : Math.round((netTotal - exactNet) * 100) / 100
 
   const isUpiPayment = Boolean(
     invoice.paymentMethod?.toLowerCase().includes('upi') ||
@@ -385,6 +403,12 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                         </span>
                       </div>
                     )}
+                    {invoice.placeOfSupply && (
+                      <div>
+                        <span className="text-slate-500">Place of Supply:</span>{' '}
+                        <span className="font-mono text-[10px]">{invoice.placeOfSupply}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -469,21 +493,54 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                     </div>
                   )}
 
-                  {hasTax && (
+                  {hasBillDiscount && (
+                    <>
+                      <div className="flex justify-between text-emerald-700 font-semibold">
+                        <span>
+                          Bill Discount {invoice.discountCode ? `(${invoice.discountCode})` : ''}:
+                        </span>
+                        <span>-₹{billDiscount.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-700">
+                        <span className="text-slate-500">Taxable Value:</span>
+                        <span>₹{finalTaxableValue.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
+
+                  {tmpl.showTaxBreakdown && hasTax ? (
+                    isInterState ? (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">IGST ({fallbackTaxPercent}%):</span>
+                        <span>₹{taxAmount.toFixed(2)}</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">CGST ({(fallbackTaxPercent / 2).toFixed(1)}%):</span>
+                          <span>₹{halfTaxAmount.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">SGST ({(fallbackTaxPercent / 2).toFixed(1)}%):</span>
+                          <span>₹{halfTaxAmount.toFixed(2)}</span>
+                        </div>
+                      </>
+                    )
+                  ) : hasTax ? (
                     <div className="flex justify-between">
                       <span className="text-slate-500">
-                        GST {hasItemGst ? '(Itemized)' : `(${fallbackTaxPercent}%)`}:
+                        {isInterState ? 'IGST' : 'GST'} {hasItemGst ? '(Itemized)' : `(${fallbackTaxPercent}%)`}:
                       </span>
                       <span>₹{taxAmount.toFixed(2)}</span>
                     </div>
-                  )}
+                  ) : null}
 
-                  {hasBillDiscount && (
-                    <div className="flex justify-between text-emerald-700 font-semibold">
-                      <span>
-                        Bill Discount {invoice.discountCode ? `(${invoice.discountCode})` : ''}:
+                  {roundOff !== 0 && (
+                    <div className="flex justify-between text-slate-600">
+                      <span className="text-slate-500">Round Off:</span>
+                      <span className="font-mono font-semibold">
+                        {roundOff > 0 ? `+₹${roundOff.toFixed(2)}` : `-₹${Math.abs(roundOff).toFixed(2)}`}
                       </span>
-                      <span>-₹{billDiscount.toFixed(2)}</span>
                     </div>
                   )}
 
@@ -496,7 +553,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
 
                   <div className="flex justify-between text-sm font-extrabold pt-2 border-t border-slate-200 mt-1">
                     <span>TOTAL PAYABLE:</span>
-                    <span className="text-slate-950">₹{netTotal.toLocaleString('en-IN')}.00</span>
+                    <span className="text-slate-950 font-mono">₹{netTotal.toFixed(2)}</span>
                   </div>
 
                   {tmpl.showRemarks !== false && (

@@ -116,3 +116,21 @@ export function updateCustomerStatsInTransaction(
     { merge: true }
   )
 }
+
+export async function decrementCustomerStatsDoc(
+  customerId: string,
+  spendToDeduct: number
+): Promise<void> {
+  if (!db) return
+  const ref = doc(db, COLLECTIONS.CUSTOMERS, customerId)
+  try {
+    await updateDoc(ref, {
+      visits: increment(-1),
+      totalSpend: increment(-spendToDeduct),
+      updatedAt: serverTimestamp(),
+    })
+  } catch (err) {
+    console.warn('[CustomerRepository] Error decrementing customer stats:', err)
+  }
+}
+

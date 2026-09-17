@@ -112,24 +112,30 @@ export function printElementContent(elementId: string, options: PrintOptions = {
       border-collapse: collapse;
     }
     #print-root {
-      height: 100%;
-      min-height: 10.15in;
-      display: flex;
-      flex-direction: column;
+      width: 100%;
+      min-height: 10in;
+      display: block;
     }
     #printable-horizontal-invoice {
       border: 2px solid #000000 !important;
       box-shadow: none !important;
       max-width: 7.7in !important;
       width: 100% !important;
-      height: 10.15in !important;
-      min-height: 10.15in !important;
+      min-height: 10in !important;
+      height: auto !important;
       box-sizing: border-box !important;
       display: flex !important;
       flex-direction: column !important;
       justify-content: space-between !important;
       margin: 0 auto !important;
+    }
+    .print-keep-together {
       page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    tr {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
     }
   `
 

@@ -757,6 +757,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         discountCode: invoiceData.discountCode,
         discountAmount: invoiceData.discountAmount,
         netTotal: invoiceData.netTotal,
+        roundOff: invoiceData.roundOff,
+        placeOfSupply: invoiceData.placeOfSupply,
+        isInterState: invoiceData.isInterState,
         billMode: invoiceData.paymentMethod.toUpperCase().includes('UPI')
           ? 'upi'
           : invoiceData.paymentMethod.toUpperCase().includes('CARD')
@@ -811,12 +814,58 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteInvoice = async (id: string) => {
     const cleanId = id.startsWith('#') ? id.slice(1) : id
+    const targetInvoice = invoices.find(
+      (inv) => inv.id === id || inv.id === `#${cleanId}` || inv.id === cleanId
+    )
+
     setInvoices((prev) =>
       prev.filter((inv) => inv.id !== id && inv.id !== `#${cleanId}` && inv.id !== cleanId)
     )
+
+    // 1. Replenish local products state immediately
+    if (targetInvoice && targetInvoice.items) {
+      setProducts((prev) =>
+        prev.map((p) => {
+          const matchedItem = targetInvoice.items.find((it) => it.productId === p.id)
+          if (matchedItem && matchedItem.quantity > 0) {
+            const restoredStock = p.stock + matchedItem.quantity
+            return {
+              ...p,
+              stock: restoredStock,
+              status:
+                restoredStock > 10 ? 'in_stock' : restoredStock > 0 ? 'low_stock' : 'out_of_stock',
+            }
+          }
+          return p
+        })
+      )
+
+      // 2. Rollback customer visits & spend in local state
+      if (targetInvoice.customer?.id) {
+        setCustomers((prev) =>
+          prev.map((c) => {
+            if (c.id === targetInvoice.customer.id) {
+              return {
+                ...c,
+                visits: Math.max(0, (c.visits || 1) - 1),
+                totalSpend: Math.max(0, (c.totalSpend || 0) - targetInvoice.netTotal),
+              }
+            }
+            return c
+          })
+        )
+      }
+    }
+
     try {
-      await billingService.deleteInvoice(cleanId)
-      showToast(`Invoice #${cleanId} deleted successfully`, 'success')
+      await billingService.deleteInvoice(
+        cleanId,
+        targetInvoice?.items.map((it) => ({ productId: it.productId, quantity: it.quantity })),
+        targetInvoice?.customer?.id
+          ? { customerId: targetInvoice.customer.id, spend: targetInvoice.netTotal }
+          : undefined
+      )
+      showToast(`Invoice #${cleanId} deleted & stock replenished`, 'success')
     } catch (err) {
       console.error('[POSContext] Error deleting invoice:', err)
       showToast('Failed to delete invoice', 'error')

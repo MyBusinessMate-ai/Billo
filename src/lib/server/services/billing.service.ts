@@ -9,8 +9,14 @@ import {
   subscribeBillings,
 } from '../repositories/billing.repository'
 import { getNextSequentialId } from '../repositories/counter.repository'
-import { decrementStockInTransaction } from '../repositories/product.repository'
-import { updateCustomerStatsInTransaction } from '../repositories/customer.repository'
+import {
+  decrementStockInTransaction,
+  restockProductDoc,
+} from '../repositories/product.repository'
+import {
+  updateCustomerStatsInTransaction,
+  decrementCustomerStatsDoc,
+} from '../repositories/customer.repository'
 import { db } from '../../firebase'
 import { runTransaction } from 'firebase/firestore'
 import { formatDate, formatDateTime } from '../../../utils/formatters'
@@ -66,6 +72,9 @@ export function mapFirestoreBillingToUI(b: FirestoreBilling): UIBillingInvoice {
     discountCode: b.discountCode,
     discountAmount,
     netTotal: b.total,
+    roundOff: b.roundOff,
+    placeOfSupply: b.placeOfSupply,
+    isInterState: b.isInterState,
     paymentMethod: b.billMode === 'upi' ? 'UPI / QR' : b.billMode === 'card' ? 'Card' : 'Cash',
     status: 'completed' as InvoiceStatus,
     internalNote: b.internalNote,
@@ -120,6 +129,9 @@ export const billingService = {
     discountCode?: string
     discountAmount: number
     netTotal: number
+    roundOff?: number
+    placeOfSupply?: string
+    isInterState?: boolean
     billMode: 'cash' | 'upi' | 'card'
     invoiceFormat?: 'thermal' | 'a4'
     internalNote?: string
@@ -164,6 +176,9 @@ export const billingService = {
       ...(invoiceData.discountCode ? { discountCode: invoiceData.discountCode } : {}),
       discountAmount: invoiceData.discountAmount,
       total: invoiceData.netTotal,
+      ...(invoiceData.roundOff !== undefined ? { roundOff: invoiceData.roundOff } : {}),
+      ...(invoiceData.placeOfSupply ? { placeOfSupply: invoiceData.placeOfSupply } : {}),
+      ...(invoiceData.isInterState !== undefined ? { isInterState: invoiceData.isInterState } : {}),
       billMode: invoiceData.billMode,
       invoiceFormat: invoiceData.invoiceFormat || 'a4',
       ...(invoiceData.internalNote ? { internalNote: invoiceData.internalNote } : {}),
@@ -239,8 +254,40 @@ export const billingService = {
     }
   },
 
-  async deleteInvoice(billingId: string): Promise<void> {
+  async deleteInvoice(
+    billingId: string,
+    itemsToRestock?: Array<{ productId?: string; quantity: number }>,
+    customerAdjustment?: { customerId?: string; spend: number }
+  ): Promise<void> {
     if (db) {
+      if (itemsToRestock && itemsToRestock.length > 0) {
+        for (const it of itemsToRestock) {
+          if (it.productId && it.productId.startsWith('PROD-') && it.quantity > 0) {
+            try {
+              await restockProductDoc(it.productId, it.quantity)
+            } catch (err) {
+              console.warn(
+                '[BillingService] Failed to restock product on invoice delete:',
+                it.productId,
+                err
+              )
+            }
+          }
+        }
+      }
+
+      if (
+        customerAdjustment?.customerId &&
+        customerAdjustment.customerId.startsWith('CUS-') &&
+        customerAdjustment.spend > 0
+      ) {
+        try {
+          await decrementCustomerStatsDoc(customerAdjustment.customerId, customerAdjustment.spend)
+        } catch (err) {
+          console.warn('[BillingService] Failed to rollback customer stats:', err)
+        }
+      }
+
       await deleteBillingDoc(billingId)
     }
   },

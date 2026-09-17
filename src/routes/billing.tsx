@@ -8,12 +8,31 @@ import { ThermalReceiptModal } from '../components/billing/ThermalReceiptModal'
 import type { BillingItem, BillingInvoice } from '../types/pos'
 import { usePOS } from '../context/POSContext'
 
+function playScannerBeep() {
+  try {
+    const AudioContextClass =
+      window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    if (!AudioContextClass) return
+    const ctx = new AudioContextClass()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(1800, ctx.currentTime)
+    gain.gain.setValueAtTime(0.12, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.08)
+  } catch {}
+}
+
 export const Route = createFileRoute('/billing')({
   component: MakeBillingPage,
 })
 
 function MakeBillingPage() {
-  const { settings, addInvoice, showToast, currentDate, currentTime } = usePOS()
+  const { settings, products, addInvoice, showToast, currentDate, currentTime } = usePOS()
 
   // Cart items
   const [items, setItems] = useState<BillingItem[]>([])
@@ -56,6 +75,93 @@ function MakeBillingPage() {
     },
     []
   )
+
+  const handleAddItem = useCallback(
+    (item: BillingItem) => {
+      setItems((prev) => {
+        const existingIndex = prev.findIndex(
+          (i) => i.productId === item.productId && i.name === item.name
+        )
+        if (existingIndex > -1) {
+          const updated = [...prev]
+          const existing = updated[existingIndex]
+          const nextQty = existing.quantity + (item.quantity || 1)
+          const lineGross = nextQty * existing.price
+          const lineDisc = existing.discountAmount || 0
+          updated[existingIndex] = {
+            ...existing,
+            quantity: nextQty,
+            total: Math.max(0, lineGross - lineDisc),
+          }
+          return updated
+        }
+        return [item, ...prev]
+      })
+    },
+    []
+  )
+
+  // Global USB Barcode Scanner HID Wedge Listener
+  useEffect(() => {
+    let barcodeBuffer = ''
+    let lastKeyTime = 0
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const activeTag = (document.activeElement as HTMLElement)?.tagName
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {
+        return
+      }
+
+      const now = Date.now()
+
+      if (e.key === 'Enter') {
+        if (barcodeBuffer.trim().length >= 2 && now - lastKeyTime < 200) {
+          e.preventDefault()
+          const scannedCode = barcodeBuffer.trim()
+          barcodeBuffer = ''
+
+          const matchedProd = products.find(
+            (p) =>
+              (p.sku && p.sku.toLowerCase() === scannedCode.toLowerCase()) ||
+              (p.ean && p.ean.toLowerCase() === scannedCode.toLowerCase()) ||
+              p.id.toLowerCase() === scannedCode.toLowerCase() ||
+              p.name.toLowerCase() === scannedCode.toLowerCase()
+          )
+
+          if (matchedProd) {
+            handleAddItem({
+              productId: matchedProd.id,
+              name: matchedProd.name,
+              category: matchedProd.category || 'General',
+              price: matchedProd.sellingPrice,
+              quantity: 1,
+              total: matchedProd.sellingPrice,
+              gstPercent: settings.taxRatePercent || 0,
+              hsn: '84733099',
+            })
+            playScannerBeep()
+            showToast(`Scanned: ${matchedProd.name}`, 'success')
+          } else {
+            showToast(`Barcode "${scannedCode}" not found in catalog`, 'warning')
+          }
+        }
+        barcodeBuffer = ''
+        return
+      }
+
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (now - lastKeyTime > 160) {
+          barcodeBuffer = e.key
+        } else {
+          barcodeBuffer += e.key
+        }
+        lastKeyTime = now
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [products, settings.taxRatePercent, handleAddItem, showToast])
 
   // Track Esc key timestamp for ESC + 1 combination detection
   const lastEscTimeRef = useRef<number>(0)
@@ -129,47 +235,29 @@ function MakeBillingPage() {
       showToast('No items to delete', 'info')
       return
     }
-    const lastItem = items[items.length - 1]
-    setItems((prev) => prev.slice(0, -1))
-    showToast(`Deleted recent item: "${lastItem.name}" [ESC+1]`, 'info')
+    const removedItem = items[0]
+    setItems((prev) => prev.slice(1))
+    showToast(`Removed most recent item "${removedItem.name}"`, 'info')
   }
 
-  const handleAddItem = (newItem: BillingItem) => {
-    setItems((prev) => {
-      const existing = prev.find((item) => item.productId === newItem.productId)
-      if (existing) {
-        return prev.map((item) => {
-          if (item.productId !== newItem.productId) return item
-          const combinedQty = item.quantity + newItem.quantity
-          const combinedDiscount = (item.discountAmount || 0) + (newItem.discountAmount || 0)
-          const combinedTotal = Math.max(0, combinedQty * item.price - combinedDiscount)
-          return {
-            ...item,
-            quantity: combinedQty,
-            discountAmount: combinedDiscount > 0 ? combinedDiscount : undefined,
-            total: combinedTotal,
-          }
-        })
-      }
-      return [...prev, newItem]
-    })
-  }
-
-  const handleUpdateQty = (productId: string, qty: number) => {
-    if (qty <= 0) {
+  const handleUpdateQty = (productId: string, newQty: number) => {
+    if (newQty <= 0) {
       handleRemoveItem(productId)
       return
     }
     setItems((prev) =>
-      prev.map((item) =>
-        item.productId === productId
-          ? {
-              ...item,
-              quantity: qty,
-              total: Math.max(0, qty * item.price - (item.discountAmount || 0)),
-            }
-          : item
-      )
+      prev.map((item) => {
+        if (item.productId === productId) {
+          const lineGross = newQty * item.price
+          const lineDisc = item.discountAmount || 0
+          return {
+            ...item,
+            quantity: newQty,
+            total: Math.max(0, lineGross - lineDisc),
+          }
+        }
+        return item
+      })
     )
   }
 
@@ -180,7 +268,11 @@ function MakeBillingPage() {
   }
 
   const handleRemoveItem = (productId: string) => {
+    const itemToRemove = items.find((i) => i.productId === productId)
     setItems((prev) => prev.filter((item) => item.productId !== productId))
+    if (itemToRemove) {
+      showToast(`Removed "${itemToRemove.name}" from bill`, 'info')
+    }
   }
 
   const handleClearAllRequest = () => {
@@ -201,7 +293,7 @@ function MakeBillingPage() {
       isWalkIn: false,
     })
     setIsClearConfirmOpen(false)
-    showToast('Cleared all items and reset ledger', 'info')
+    showToast('All items cleared from bill', 'info')
   }
 
   const handleReset = () => {
@@ -213,6 +305,7 @@ function MakeBillingPage() {
       gstin: '',
       isWalkIn: false,
     })
+    setLedgerDiscount({ discountAmount: 0 })
     showToast('Reset billing ledger', 'info')
   }
 
@@ -222,11 +315,16 @@ function MakeBillingPage() {
     changeDue?: number
     discountCode?: string
     discountAmount: number
+    roundOff?: number
     printReceipt: boolean
     internalNote?: string
     invoiceFormat?: 'thermal' | 'a4'
   }) => {
     const subtotal = items.reduce((sum, item) => sum + item.total, 0)
+    const discountAmount = paymentDetails.discountAmount || 0
+    const taxableSubtotal = Math.max(0, subtotal - discountAmount)
+    const discountRatio = subtotal > 0 ? taxableSubtotal / subtotal : 1
+
     const defaultTaxPercent =
       typeof settings.taxRatePercent === 'number' ? settings.taxRatePercent : 0
     const hasItemGst = items.some((item) => item.gstPercent !== undefined)
@@ -235,12 +333,27 @@ function MakeBillingPage() {
         (hasItemGst
           ? items.reduce((sum, item) => {
               const rate = item.gstPercent !== undefined ? item.gstPercent : defaultTaxPercent
-              return sum + (item.total * rate) / 100
+              const discountedLine = item.total * discountRatio
+              return sum + (discountedLine * rate) / 100
             }, 0)
-          : (subtotal * defaultTaxPercent) / 100) * 100
+          : (taxableSubtotal * defaultTaxPercent) / 100) * 100
       ) / 100
     const taxPercent = defaultTaxPercent
-    const netTotal = Math.round(Math.max(0, subtotal + taxAmount - paymentDetails.discountAmount))
+    const exactNetPayable = Math.max(0, taxableSubtotal + taxAmount)
+    const netTotal = Math.round(exactNetPayable)
+    const roundOff =
+      paymentDetails.roundOff !== undefined
+        ? paymentDetails.roundOff
+        : Math.round((netTotal - exactNetPayable) * 100) / 100
+
+    const storeStateCode = settings.gstin ? settings.gstin.trim().slice(0, 2) : '36'
+    const customerStateCode = customer.gstin ? customer.gstin.trim().slice(0, 2) : storeStateCode
+    const isInterState = Boolean(
+      customer.gstin && customerStateCode && customerStateCode !== storeStateCode
+    )
+    const placeOfSupply = isInterState
+      ? `Inter-State (Code ${customerStateCode})`
+      : `Intra-State (Telangana - 36)`
 
     const newInvoice = addInvoice({
       customer: {
@@ -258,6 +371,9 @@ function MakeBillingPage() {
       discountCode: paymentDetails.discountCode,
       discountAmount: paymentDetails.discountAmount,
       netTotal,
+      roundOff,
+      placeOfSupply,
+      isInterState,
       paymentMethod: paymentDetails.paymentMethod,
       cashTendered: paymentDetails.cashTendered,
       changeDue: paymentDetails.changeDue,

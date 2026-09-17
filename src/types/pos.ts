@@ -91,6 +91,9 @@ export interface BillingInvoice {
   changeDue?: number
   status: InvoiceStatus
   internalNote?: string
+  roundOff?: number
+  placeOfSupply?: string
+  isInterState?: boolean
   invoiceFormat?: 'thermal' | 'a4'
   timestamp: string
   date: string

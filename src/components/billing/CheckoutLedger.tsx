@@ -24,6 +24,7 @@ interface CheckoutLedgerProps {
     changeDue?: number
     discountCode?: string
     discountAmount: number
+    roundOff?: number
     printReceipt: boolean
     internalNote?: string
     invoiceFormat?: 'thermal' | 'a4'
@@ -46,7 +47,7 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
   onConfirmBilling,
   onDiscountChange,
 }) => {
-  const { settings, invoices, customers, showToast, nextInvoiceSequence } = usePOS()
+  const { settings, invoices, customers, products, showToast, nextInvoiceSequence } = usePOS()
 
   const [selectedFormat, setSelectedFormat] = useState<'thermal' | 'a4'>(() =>
     settings.invoiceFormat === 'thermal' ? 'thermal' : 'a4'
@@ -116,24 +117,12 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
   const customerBillCount =
     customerPastInvoices.length > 0 ? customerPastInvoices.length : matchedCustomerObj?.visits || 0
 
-  // Calculations
+  // 1. Gross & Item-level Discounts
   const grossSubtotal = items.reduce((sum, item) => sum + item.total, 0)
-  const defaultTaxPercent =
-    typeof settings.taxRatePercent === 'number' ? settings.taxRatePercent : 0
-  const hasItemGst = items.some((item) => item.gstPercent !== undefined)
-  const taxAmount =
-    Math.round(
-      (hasItemGst
-        ? items.reduce((sum, item) => {
-            const rate = item.gstPercent !== undefined ? item.gstPercent : defaultTaxPercent
-            return sum + (item.total * rate) / 100
-          }, 0)
-        : (grossSubtotal * defaultTaxPercent) / 100) * 100
-    ) / 100
-  const taxPercent = defaultTaxPercent
-  const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0)
+  const totalGross = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const totalItemDiscounts = items.reduce((sum, item) => sum + (item.discountAmount || 0), 0)
 
-  // Compute Discount Amount
+  // 2. Bill-level Discount
   const parsedDiscountVal = parseFloat(discountValue) || 0
   let discountAmount = 0
   if (parsedDiscountVal > 0 && grossSubtotal > 0) {
@@ -141,8 +130,7 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
       const cappedPercent = Math.min(100, Math.max(0, parsedDiscountVal))
       discountAmount = Math.round(((grossSubtotal * cappedPercent) / 100) * 100) / 100
     } else {
-      // Direct amount in INR
-      discountAmount = Math.min(grossSubtotal + taxAmount, Math.max(0, parsedDiscountVal))
+      discountAmount = Math.min(grossSubtotal, Math.max(0, parsedDiscountVal))
     }
   }
 
@@ -153,11 +141,34 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
         : `₹${parsedDiscountVal} FLAT`
       : undefined
 
-  const rawNetPayable = Math.max(0, grossSubtotal + taxAmount - discountAmount)
-  const netPayable = Math.round(rawNetPayable)
+  // 3. Taxable Subtotal (Gross Subtotal minus Bill Discount as per Indian GST Section 15(3))
+  const taxableSubtotal = Math.max(0, grossSubtotal - discountAmount)
 
-  const totalGross = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const totalItemDiscounts = items.reduce((sum, item) => sum + (item.discountAmount || 0), 0)
+  // 4. Tax Calculation (GST computed on Taxable Subtotal)
+  const defaultTaxPercent =
+    typeof settings.taxRatePercent === 'number' ? settings.taxRatePercent : 0
+  const hasItemGst = items.some((item) => item.gstPercent !== undefined)
+
+  const discountRatio = grossSubtotal > 0 ? taxableSubtotal / grossSubtotal : 1
+
+  const taxAmount =
+    Math.round(
+      (hasItemGst
+        ? items.reduce((sum, item) => {
+            const rate = item.gstPercent !== undefined ? item.gstPercent : defaultTaxPercent
+            const discountedLineTaxable = item.total * discountRatio
+            return sum + (discountedLineTaxable * rate) / 100
+          }, 0)
+        : (taxableSubtotal * defaultTaxPercent) / 100) * 100
+    ) / 100
+
+  const taxPercent = defaultTaxPercent
+  const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0)
+
+  // 5. Exact Net & Explicit Round-Off Calculation
+  const exactNetPayable = Math.max(0, taxableSubtotal + taxAmount)
+  const netPayable = Math.round(exactNetPayable)
+  const roundOff = Math.round((netPayable - exactNetPayable) * 100) / 100
 
   const lastReportedDiscountRef = useRef<{ amount: number; code?: string } | null>(null)
 
@@ -195,6 +206,16 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
   }
 
   const handleInlineQtyChange = (productId: string, currentQty: number, delta: number) => {
+    if (delta > 0) {
+      const catalogProd = products.find((p) => p.id === productId)
+      if (catalogProd && currentQty + delta > catalogProd.stock) {
+        showToast(
+          `Only ${catalogProd.stock} units available in stock for "${catalogProd.name}"`,
+          'warning'
+        )
+        return
+      }
+    }
     const nextQty = Math.max(1, currentQty + delta)
     if (onUpdateQty) {
       onUpdateQty(productId, nextQty)
@@ -246,6 +267,7 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
       paymentMethod: methodLabel,
       discountCode: discountAmount > 0 ? discountCode : undefined,
       discountAmount,
+      roundOff,
       printReceipt,
       internalNote: showNote && internalNote.trim() ? internalNote.trim() : undefined,
       invoiceFormat: selectedFormat,
@@ -454,10 +476,10 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
 
       {/* Detailed Financial Breakdown */}
       <div className="bg-surface-container-low p-pad-sm rounded-DEFAULT space-y-2 font-body-md text-body-md">
-        {totalItemDiscounts > 0 ? (
+        {totalItemDiscounts > 0 && (
           <>
             <div className="flex items-center justify-between text-on-surface-variant">
-              <span className="font-label-md text-label-md">Gross Amount</span>
+              <span className="font-label-md text-label-md">Gross Items Total</span>
               <span className="font-mono-numeric-md text-mono-numeric-md text-on-surface font-medium">
                 ₹
                 {totalGross.toLocaleString('en-IN', {
@@ -467,7 +489,7 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
               </span>
             </div>
             <div className="flex items-center justify-between text-emerald-700">
-              <span className="font-label-md text-label-md font-medium">Item Discounts</span>
+              <span className="font-label-md text-label-md font-medium">Line Item Discounts</span>
               <span className="font-mono-numeric-md text-mono-numeric-md font-semibold">
                 -₹
                 {totalItemDiscounts.toLocaleString('en-IN', {
@@ -476,34 +498,64 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
                 })}
               </span>
             </div>
-            <div className="flex items-center justify-between text-on-surface-variant">
-              <span className="font-label-md text-label-md">Taxable Subtotal</span>
+          </>
+        )}
+
+        <div className="flex items-center justify-between text-on-surface-variant">
+          <span className="font-label-md text-label-md">Subtotal</span>
+          <span
+            className="font-mono-numeric-md text-mono-numeric-md text-on-surface font-medium"
+            id="subtotal-val"
+          >
+            ₹
+            {grossSubtotal.toLocaleString('en-IN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </span>
+        </div>
+
+        {discountAmount > 0 && (
+          <>
+            <div className="flex items-center justify-between text-secondary">
+              <div className="flex items-center gap-1.5">
+                <span className="font-label-md text-label-md font-medium">
+                  Bill Discount ({discountType === 'percent' ? `${parsedDiscountVal}%` : 'Direct ₹'})
+                </span>
+                <button
+                  type="button"
+                  id="remove-discount-btn"
+                  onClick={handleClearDiscount}
+                  className="text-on-surface-variant hover:text-error leading-none cursor-pointer"
+                  title="Remove discount"
+                >
+                  <span className="material-symbols-outlined text-[14px]">cancel</span>
+                </button>
+              </div>
               <span
-                className="font-mono-numeric-md text-mono-numeric-md text-on-surface font-medium"
-                id="subtotal-val"
+                className="font-mono-numeric-md text-mono-numeric-md font-semibold text-secondary"
+                id="discount-val"
               >
+                -₹
+                {discountAmount.toLocaleString('en-IN', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-on-surface-variant bg-surface-container/50 px-2 py-1 rounded-DEFAULT">
+              <span className="font-label-sm text-label-sm font-semibold uppercase text-slate-700">
+                Taxable Value (Sec 15)
+              </span>
+              <span className="font-mono-numeric-md text-mono-numeric-md font-bold text-slate-900">
                 ₹
-                {grossSubtotal.toLocaleString('en-IN', {
+                {taxableSubtotal.toLocaleString('en-IN', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </span>
             </div>
           </>
-        ) : (
-          <div className="flex items-center justify-between text-on-surface-variant">
-            <span className="font-label-md text-label-md">Gross Subtotal</span>
-            <span
-              className="font-mono-numeric-md text-mono-numeric-md text-on-surface font-medium"
-              id="subtotal-val"
-            >
-              ₹
-              {grossSubtotal.toLocaleString('en-IN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-          </div>
         )}
 
         <div className="flex items-center justify-between text-on-surface-variant">
@@ -523,31 +575,15 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
           </span>
         </div>
 
-        {discountAmount > 0 && (
-          <div className="flex items-center justify-between text-secondary">
-            <div className="flex items-center gap-1.5">
-              <span className="font-label-md text-label-md font-medium">
-                Discount ({discountType === 'percent' ? `${parsedDiscountVal}%` : 'Direct ₹'})
-              </span>
-              <button
-                type="button"
-                id="remove-discount-btn"
-                onClick={handleClearDiscount}
-                className="text-on-surface-variant hover:text-error leading-none cursor-pointer"
-                title="Remove discount"
-              >
-                <span className="material-symbols-outlined text-[14px]">cancel</span>
-              </button>
-            </div>
+        {roundOff !== 0 && (
+          <div className="flex items-center justify-between text-on-surface-variant">
+            <span className="font-label-md text-label-md">Round Off Adjustment</span>
             <span
-              className="font-mono-numeric-md text-mono-numeric-md font-semibold text-secondary"
-              id="discount-val"
+              className={`font-mono-numeric-md text-mono-numeric-md font-semibold ${
+                roundOff > 0 ? 'text-emerald-700' : 'text-slate-600'
+              }`}
             >
-              -₹
-              {discountAmount.toLocaleString('en-IN', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {roundOff > 0 ? `+₹${roundOff.toFixed(2)}` : `-₹${Math.abs(roundOff).toFixed(2)}`}
             </span>
           </div>
         )}
@@ -569,7 +605,7 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
               Net Payable
             </span>
             <span className="font-mono-numeric-sm text-[11px] text-secondary font-medium">
-              {discountAmount > 0 ? 'Discount & Rounding Applied' : 'Rounding Adjusted'}
+              {roundOff !== 0 ? 'Rounding Applied' : 'Exact Total'}
             </span>
           </div>
           <span

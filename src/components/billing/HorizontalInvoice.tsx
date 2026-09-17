@@ -93,7 +93,29 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
         }, 0)
       : invoice.subtotal || 0
 
-  // Total tax computed on taxable amounts
+  const billDiscount = invoice.discountAmount || 0
+  const hasItemDiscounts = totalItemDiscounts > 0
+  const hasBillDiscount = billDiscount > 0
+  const totalAllDiscounts = totalItemDiscounts + billDiscount
+
+  // Taxable Value after bill discount (Indian GST Section 15(3))
+  const finalTaxableValue = Math.max(0, taxableSubtotal - billDiscount)
+  const discountRatio = taxableSubtotal > 0 ? finalTaxableValue / taxableSubtotal : 1
+
+  // Place of Supply & Inter-State Detection
+  const storeStateCode = settings.gstin ? settings.gstin.trim().slice(0, 2) : '36'
+  const customerGstin = invoice.customer.gstin ? invoice.customer.gstin.trim().toUpperCase() : ''
+  const customerStateCode = customerGstin ? customerGstin.slice(0, 2) : storeStateCode
+  const isInterState =
+    invoice.isInterState !== undefined
+      ? invoice.isInterState
+      : Boolean(customerGstin && customerStateCode && customerStateCode !== storeStateCode)
+
+  const placeOfSupply =
+    invoice.placeOfSupply ||
+    (isInterState ? `Inter-State (Code ${customerStateCode})` : `Intra-State (Telangana - 36)`)
+
+  // Total tax computed on discounted taxable amounts
   const computedTaxAmount =
     invoice.items && invoice.items.length > 0
       ? invoice.items.reduce((sum, item) => {
@@ -101,26 +123,58 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
           const lineDisc = item.discountAmount || 0
           const lineTaxable =
             typeof item.total === 'number' ? item.total : Math.max(0, lineGross - lineDisc)
+          const discountedLine = lineTaxable * discountRatio
           const itemTaxRate = item.gstPercent !== undefined ? item.gstPercent : fallbackTaxPercent
-          return sum + (lineTaxable * itemTaxRate) / 100
+          return sum + (discountedLine * itemTaxRate) / 100
         }, 0)
-      : invoice.taxAmount || 0
+      : (finalTaxableValue * fallbackTaxPercent) / 100
 
   const taxAmount = typeof invoice.taxAmount === 'number' ? invoice.taxAmount : computedTaxAmount
   const hasTax = taxAmount > 0
-  const billDiscount = invoice.discountAmount || 0
-  const hasItemDiscounts = totalItemDiscounts > 0
-  const hasBillDiscount = billDiscount > 0
-  const totalAllDiscounts = totalItemDiscounts + billDiscount
 
   // hasDiscount determines if the Disc (₹) column in the line item table should be shown
   const hasDiscount = Boolean(tmpl.showDiscount !== false && (hasItemDiscounts || hasBillDiscount))
 
-  const netTotal =
-    invoice.netTotal || Math.round(Math.max(0, taxableSubtotal + taxAmount - billDiscount))
+  const exactNet = Math.max(0, finalTaxableValue + taxAmount)
+  const netTotal = invoice.netTotal || Math.round(exactNet)
+  const roundOff =
+    invoice.roundOff !== undefined ? invoice.roundOff : Math.round((netTotal - exactNet) * 100) / 100
 
   const halfTaxAmount = hasTax ? taxAmount / 2 : 0
   const totalQty = invoice.items.reduce((sum, item) => sum + item.quantity, 0)
+
+  const hsnSummaryList = useMemo(() => {
+    const map = new Map<
+      string,
+      { hsn: string; taxableAmount: number; rate: number; taxAmount: number }
+    >()
+
+    invoice.items.forEach((item) => {
+      const hsnCode = item.hsn || '84733099'
+      const lineGross = item.price * item.quantity
+      const lineDisc = item.discountAmount || 0
+      const lineTaxable =
+        (typeof item.total === 'number' ? item.total : Math.max(0, lineGross - lineDisc)) *
+        discountRatio
+      const rate = item.gstPercent !== undefined ? item.gstPercent : fallbackTaxPercent
+      const lineTax = (lineTaxable * rate) / 100
+
+      const existing = map.get(hsnCode)
+      if (existing) {
+        existing.taxableAmount += lineTaxable
+        existing.taxAmount += lineTax
+      } else {
+        map.set(hsnCode, {
+          hsn: hsnCode,
+          taxableAmount: lineTaxable,
+          rate,
+          taxAmount: lineTax,
+        })
+      }
+    })
+
+    return Array.from(map.values())
+  }, [invoice.items, discountRatio, fallbackTaxPercent])
 
   const isUpiPayment = Boolean(
     invoice.paymentMethod?.toLowerCase().includes('upi') ||
@@ -232,10 +286,10 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
     <div
       id="printable-horizontal-invoice"
       className="bg-white text-slate-950 font-sans p-5 sm:p-6 rounded-none border-2 border-slate-900 shadow-sm w-full mx-auto text-xs leading-tight select-text flex flex-col justify-between"
-      style={{ maxWidth: '8.5in', minHeight: '10.2in', height: '100%' }}
+      style={{ maxWidth: '8.5in', minHeight: invoice.items.length <= 6 ? '10.2in' : 'auto' }}
     >
       {/* Top Main Commercial Header Block (Clean 2-Column Grid) */}
-      <div className="grid grid-cols-12 border-b-2 border-slate-900">
+      <div className="grid grid-cols-12 border-b-2 border-slate-900 print-keep-together">
         {/* Left: Supplier Info & Logo (7 cols) */}
         <div className="col-span-7 p-3.5 border-r-2 border-slate-900 flex flex-col justify-between">
           <div>
@@ -365,6 +419,14 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
                 </span>
               </div>
             )}
+            {placeOfSupply && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-600 font-semibold">Place of Supply:</span>
+                <span className="font-bold text-slate-900 font-mono text-[10px]">
+                  {placeOfSupply}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -397,10 +459,14 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
               <th className="py-2.5 px-2.5 text-right w-24">{tmpl.totalLabel || 'Total (₹)'}</th>
               {hasDiscount && <th className="py-2.5 px-2 text-right w-16">Disc (₹)</th>}
               {tmpl.showTaxBreakdown && hasTax && (
-                <>
-                  <th className="py-2.5 px-2 text-right w-20">CGST</th>
-                  <th className="py-2.5 px-2 text-right w-20">SGST</th>
-                </>
+                isInterState ? (
+                  <th className="py-2.5 px-2 text-right w-24">IGST</th>
+                ) : (
+                  <>
+                    <th className="py-2.5 px-2 text-right w-20">CGST</th>
+                    <th className="py-2.5 px-2 text-right w-20">SGST</th>
+                  </>
+                )
               )}
               <th className="py-2.5 px-3 text-right w-28">Net Amount (₹)</th>
             </tr>
@@ -413,9 +479,11 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
                 typeof item.total === 'number' ? item.total : Math.max(0, lineGross - lineDiscount)
               const itemTaxRate =
                 item.gstPercent !== undefined ? item.gstPercent : fallbackTaxPercent
-              const itemCgst = hasTax ? lineTaxable * (itemTaxRate / 200) : 0
-              const itemSgst = hasTax ? lineTaxable * (itemTaxRate / 200) : 0
-              const itemNet = lineTaxable + itemCgst + itemSgst
+              const lineTax = hasTax ? (lineTaxable * discountRatio * itemTaxRate) / 100 : 0
+              const itemCgst = lineTax / 2
+              const itemSgst = lineTax / 2
+              const itemIgst = lineTax
+              const itemNet = lineTaxable + lineTax
 
               return (
                 <tr key={idx} className="bg-white">
@@ -456,7 +524,7 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
                   {separateColumns.map((col) => {
                     const val = item.customFields?.[col.fieldId]
                     const colConfig = categories
-                      .flatMap((c) => c.customFields || [])
+                        .flatMap((c) => c.customFields || [])
                       .find((cf) => cf.id === col.fieldId)
                     const formattedVal =
                       val !== undefined && val !== ''
@@ -518,24 +586,35 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
                     </td>
                   )}
                   {tmpl.showTaxBreakdown && hasTax && (
-                    <>
+                    isInterState ? (
                       <td className="py-2 px-2 text-right font-mono text-slate-700">
-                        {itemCgst.toFixed(2)}
+                        {itemIgst.toFixed(2)}
                         {item.gstPercent !== undefined && (
                           <span className="block text-[8px] text-slate-400">
-                            ({(item.gstPercent / 2).toFixed(1)}%)
+                            ({item.gstPercent.toFixed(1)}%)
                           </span>
                         )}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-slate-700">
-                        {itemSgst.toFixed(2)}
-                        {item.gstPercent !== undefined && (
-                          <span className="block text-[8px] text-slate-400">
-                            ({(item.gstPercent / 2).toFixed(1)}%)
-                          </span>
-                        )}
-                      </td>
-                    </>
+                    ) : (
+                      <>
+                        <td className="py-2 px-2 text-right font-mono text-slate-700">
+                          {itemCgst.toFixed(2)}
+                          {item.gstPercent !== undefined && (
+                            <span className="block text-[8px] text-slate-400">
+                              ({(item.gstPercent / 2).toFixed(1)}%)
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 px-2 text-right font-mono text-slate-700">
+                          {itemSgst.toFixed(2)}
+                          {item.gstPercent !== undefined && (
+                            <span className="block text-[8px] text-slate-400">
+                              ({(item.gstPercent / 2).toFixed(1)}%)
+                            </span>
+                          )}
+                        </td>
+                      </>
+                    )
                   )}
                   <td className="py-2 px-3 text-right font-mono font-black text-slate-950">
                     {itemNet.toFixed(2)}
@@ -543,15 +622,17 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
                 </tr>
               )
             })}
-            {/* Flexible spacer row that absorbs all remaining height to push the total row to the bottom */}
-            <tr style={{ height: '100%' }}>
-              <td
-                colSpan={100}
-                className="p-0 border-0 text-transparent select-none pointer-events-none"
-              >
-                &nbsp;
-              </td>
-            </tr>
+            {/* Flexible spacer row only rendered for short bills (<= 6 items) to prevent multi-page overflow */}
+            {invoice.items.length <= 6 && (
+              <tr style={{ height: '100%' }}>
+                <td
+                  colSpan={100}
+                  className="p-0 border-0 text-transparent select-none pointer-events-none"
+                >
+                  &nbsp;
+                </td>
+              </tr>
+            )}
           </tbody>
           {/* Table Totals Row pinned at the bottom of the items section */}
           <tfoot>
@@ -575,10 +656,14 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
                 </td>
               )}
               {tmpl.showTaxBreakdown && hasTax && (
-                <>
-                  <td className="py-2.5 px-2 text-right font-mono">{halfTaxAmount.toFixed(2)}</td>
-                  <td className="py-2.5 px-2 text-right font-mono">{halfTaxAmount.toFixed(2)}</td>
-                </>
+                isInterState ? (
+                  <td className="py-2.5 px-2 text-right font-mono">{taxAmount.toFixed(2)}</td>
+                ) : (
+                  <>
+                    <td className="py-2.5 px-2 text-right font-mono">{halfTaxAmount.toFixed(2)}</td>
+                    <td className="py-2.5 px-2 text-right font-mono">{halfTaxAmount.toFixed(2)}</td>
+                  </>
+                )
               )}
               <td className="py-2.5 px-3 text-right font-mono font-black">
                 ₹{netTotal.toFixed(2)}
@@ -587,6 +672,71 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
           </tfoot>
         </table>
       </div>
+
+      {/* Optional HSN/SAC Tax Summary Table (GST Section 15 Compliance) */}
+      {tmpl.showHsn !== false && hasTax && hsnSummaryList.length > 0 && (
+        <div className="border-b-2 border-slate-900 bg-slate-50/70 px-3 py-2 print-keep-together">
+          <div className="text-[9px] font-black uppercase text-slate-700 tracking-wider mb-1 flex items-center justify-between">
+            <span>HSN/SAC Tax Breakdown</span>
+            <span className="text-[8.5px] font-bold text-slate-500">
+              {isInterState ? 'Inter-State Supply (IGST)' : 'Intra-State Supply (CGST + SGST)'}
+            </span>
+          </div>
+          <table className="w-full text-left text-[10px] border border-slate-300">
+            <thead>
+              <tr className="bg-slate-200/80 text-slate-800 font-bold border-b border-slate-300">
+                <th className="py-1 px-2 border-r border-slate-300">HSN/SAC</th>
+                <th className="py-1 px-2 text-right border-r border-slate-300">Taxable Value (₹)</th>
+                {isInterState ? (
+                  <th className="py-1 px-2 text-right border-r border-slate-300">IGST Rate & Amt (₹)</th>
+                ) : (
+                  <>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">CGST (₹)</th>
+                    <th className="py-1 px-2 text-right border-r border-slate-300">SGST (₹)</th>
+                  </>
+                )}
+                <th className="py-1 px-2 text-right">Total Tax (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {hsnSummaryList.map((h, i) => (
+                <tr key={i} className="border-b border-slate-200 bg-white">
+                  <td className="py-1 px-2 font-mono font-semibold text-slate-900 border-r border-slate-200">
+                    {h.hsn}
+                  </td>
+                  <td className="py-1 px-2 text-right font-mono text-slate-800 border-r border-slate-200">
+                    {h.taxableAmount.toFixed(2)}
+                  </td>
+                  {isInterState ? (
+                    <td className="py-1 px-2 text-right font-mono text-slate-800 border-r border-slate-200">
+                      {h.taxAmount.toFixed(2)}{' '}
+                      <span className="text-[8.5px] text-slate-500">({h.rate}%)</span>
+                    </td>
+                  ) : (
+                    <>
+                      <td className="py-1 px-2 text-right font-mono text-slate-800 border-r border-slate-200">
+                        {(h.taxAmount / 2).toFixed(2)}{' '}
+                        <span className="text-[8.5px] text-slate-500">
+                          ({(h.rate / 2).toFixed(1)}%)
+                        </span>
+                      </td>
+                      <td className="py-1 px-2 text-right font-mono text-slate-800 border-r border-slate-200">
+                        {(h.taxAmount / 2).toFixed(2)}{' '}
+                        <span className="text-[8.5px] text-slate-500">
+                          ({(h.rate / 2).toFixed(1)}%)
+                        </span>
+                      </td>
+                    </>
+                  )}
+                  <td className="py-1 px-2 text-right font-mono font-bold text-slate-950">
+                    {h.taxAmount.toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Row 4: Commercial Summary & Payment Info Grid (Compact & Tightly Spaced) */}
       <div className="grid grid-cols-12 border-b-2 border-slate-900 bg-white">
@@ -651,31 +801,56 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
             )}
 
             {hasBillDiscount && (
-              <div className="flex justify-between text-emerald-700 font-semibold">
-                <span>
-                  Bill Discount {invoice.discountCode ? `(${invoice.discountCode})` : ''}:
-                </span>
-                <span className="font-mono">-₹{billDiscount.toFixed(2)}</span>
-              </div>
+              <>
+                <div className="flex justify-between text-emerald-700 font-semibold">
+                  <span>
+                    Bill Discount {invoice.discountCode ? `(${invoice.discountCode})` : ''}:
+                  </span>
+                  <span className="font-mono">-₹{billDiscount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-slate-800 font-medium">
+                  <span>Taxable Value (Sec 15):</span>
+                  <span className="font-mono font-semibold">₹{finalTaxableValue.toFixed(2)}</span>
+                </div>
+              </>
             )}
 
             {tmpl.showTaxBreakdown && hasTax ? (
-              <>
+              isInterState ? (
                 <div className="flex justify-between text-slate-700 text-[10.5px]">
-                  <span>CGST ({(fallbackTaxPercent / 2).toFixed(1)}%):</span>
-                  <span className="font-mono font-semibold">₹{halfTaxAmount.toFixed(2)}</span>
+                  <span>IGST ({fallbackTaxPercent}%):</span>
+                  <span className="font-mono font-semibold">₹{taxAmount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-slate-700 text-[10.5px]">
-                  <span>SGST ({(fallbackTaxPercent / 2).toFixed(1)}%):</span>
-                  <span className="font-mono font-semibold">₹{halfTaxAmount.toFixed(2)}</span>
-                </div>
-              </>
+              ) : (
+                <>
+                  <div className="flex justify-between text-slate-700 text-[10.5px]">
+                    <span>CGST ({(fallbackTaxPercent / 2).toFixed(1)}%):</span>
+                    <span className="font-mono font-semibold">₹{halfTaxAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-700 text-[10.5px]">
+                    <span>SGST ({(fallbackTaxPercent / 2).toFixed(1)}%):</span>
+                    <span className="font-mono font-semibold">₹{halfTaxAmount.toFixed(2)}</span>
+                  </div>
+                </>
+              )
             ) : hasTax ? (
               <div className="flex justify-between text-slate-700 text-[10.5px]">
-                <span>GST {hasItemGst ? '(Itemized)' : `(${fallbackTaxPercent}%)`}:</span>
+                <span>
+                  {isInterState ? 'IGST' : 'GST'}{' '}
+                  {hasItemGst ? '(Itemized)' : `(${fallbackTaxPercent}%)`}:
+                </span>
                 <span className="font-mono font-semibold">₹{taxAmount.toFixed(2)}</span>
               </div>
             ) : null}
+
+            {roundOff !== 0 && (
+              <div className="flex justify-between text-slate-600 text-[10.5px]">
+                <span>Round Off:</span>
+                <span className="font-mono font-semibold">
+                  {roundOff > 0 ? `+₹${roundOff.toFixed(2)}` : `-₹${Math.abs(roundOff).toFixed(2)}`}
+                </span>
+              </div>
+            )}
 
             {totalAllDiscounts > 0 && (
               <div className="flex justify-between text-[10px] text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60 font-medium">

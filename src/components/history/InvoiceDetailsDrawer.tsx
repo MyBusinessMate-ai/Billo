@@ -266,6 +266,12 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
                 <span>{invoice.invoiceFormat === 'thermal' ? '80mm Thermal' : 'Letter / A4'}</span>
               </span>
             </div>
+            {invoice.placeOfSupply && (
+              <div className="col-span-3 flex items-center gap-1.5 pt-1.5 border-t border-outline-variant/30 text-[11px]">
+                <span className="text-on-surface-variant font-medium">Place of Supply:</span>
+                <span className="font-mono font-bold text-on-surface">{invoice.placeOfSupply}</span>
+              </div>
+            )}
           </div>
 
           {/* Line Items Breakdown Table */}
@@ -354,19 +360,32 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
                 ₹{invoice.subtotal.toFixed(2)}
               </span>
             </div>
-            {(invoice.taxPercent ?? settings.taxRatePercent ?? 0) > 0 && invoice.taxAmount > 0 && (
-              <div className="flex justify-between items-center text-body-sm font-body-sm text-on-surface-variant">
-                <span>Applicable GST ({invoice.taxPercent ?? settings.taxRatePercent}%)</span>
-                <span className="font-mono-numeric-md text-mono-numeric-md text-on-surface">
-                  ₹{invoice.taxAmount.toFixed(2)}
-                </span>
-              </div>
-            )}
             {invoice.discountAmount > 0 && (
               <div className="flex justify-between items-center text-body-sm font-body-sm text-secondary">
                 <span>Store Promo / Member Discount</span>
                 <span className="font-mono-numeric-md text-mono-numeric-md font-semibold">
                   -₹{invoice.discountAmount.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {(invoice.taxPercent ?? settings.taxRatePercent ?? 0) > 0 && invoice.taxAmount > 0 && (
+              <div className="flex justify-between items-center text-body-sm font-body-sm text-on-surface-variant">
+                <span>
+                  {invoice.isInterState ? 'Applicable IGST' : 'Applicable GST'} (
+                  {invoice.taxPercent ?? settings.taxRatePercent}%)
+                </span>
+                <span className="font-mono-numeric-md text-mono-numeric-md text-on-surface">
+                  ₹{invoice.taxAmount.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {invoice.roundOff !== undefined && invoice.roundOff !== 0 && (
+              <div className="flex justify-between items-center text-body-sm font-body-sm text-on-surface-variant">
+                <span>Round Off Adjustment</span>
+                <span className="font-mono-numeric-md text-mono-numeric-md font-semibold text-on-surface">
+                  {invoice.roundOff > 0
+                    ? `+₹${invoice.roundOff.toFixed(2)}`
+                    : `-₹${Math.abs(invoice.roundOff).toFixed(2)}`}
                 </span>
               </div>
             )}
@@ -381,7 +400,7 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
                 </span>
               </div>
               <span className="font-mono-numeric-lg text-mono-numeric-lg text-on-surface font-extrabold">
-                ₹{invoice.netTotal.toLocaleString('en-IN')}.00
+                ₹{invoice.netTotal.toFixed(2)}
               </span>
             </div>
           </div>
