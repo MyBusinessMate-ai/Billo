@@ -224,6 +224,7 @@ function MakeBillingPage() {
     discountAmount: number
     printReceipt: boolean
     internalNote?: string
+    invoiceFormat?: 'thermal' | 'a4'
   }) => {
     const subtotal = items.reduce((sum, item) => sum + item.total, 0)
     const defaultTaxPercent =
@@ -261,6 +262,7 @@ function MakeBillingPage() {
       cashTendered: paymentDetails.cashTendered,
       changeDue: paymentDetails.changeDue,
       internalNote: paymentDetails.internalNote,
+      invoiceFormat: paymentDetails.invoiceFormat || settings.invoiceFormat || 'a4',
       status: 'completed',
       timestamp: currentTime ? currentTime.split(' ')[1] : '14:32:08',
       date: currentDate || '2024-10-24',
@@ -336,6 +338,7 @@ function MakeBillingPage() {
         netTotal,
         paymentMethod: 'UPI / Cash',
         status: 'completed',
+        invoiceFormat: settings.invoiceFormat || 'a4',
         date: currentDate || new Date().toISOString().split('T')[0],
         timestamp: currentTime ? currentTime.split(' ')[1] : '12:00:00',
       }
@@ -391,6 +394,7 @@ function MakeBillingPage() {
         netTotal,
         paymentMethod: 'UPI / PhonePe',
         status: 'completed',
+        invoiceFormat: settings.invoiceFormat || 'a4',
         date: currentDate || new Date().toISOString().split('T')[0],
         timestamp: currentTime ? currentTime.split(' ')[1] : '12:00:00',
       }

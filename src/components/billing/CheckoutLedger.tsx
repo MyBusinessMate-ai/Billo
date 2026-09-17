@@ -26,6 +26,7 @@ interface CheckoutLedgerProps {
     discountAmount: number
     printReceipt: boolean
     internalNote?: string
+    invoiceFormat?: 'thermal' | 'a4'
   }) => void
   onDiscountChange?: (discount: {
     discountAmount: number
@@ -46,6 +47,16 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
   onDiscountChange,
 }) => {
   const { settings, invoices, customers, showToast, nextInvoiceSequence } = usePOS()
+
+  const [selectedFormat, setSelectedFormat] = useState<'thermal' | 'a4'>(() =>
+    settings.invoiceFormat === 'thermal' ? 'thermal' : 'a4'
+  )
+
+  useEffect(() => {
+    if (settings.invoiceFormat) {
+      setSelectedFormat(settings.invoiceFormat === 'thermal' ? 'thermal' : 'a4')
+    }
+  }, [settings.invoiceFormat])
 
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'upi' | 'card'>('cash')
   const [discountType, setDiscountType] = useState<'percent' | 'flat'>('percent')
@@ -237,6 +248,7 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
       discountAmount,
       printReceipt,
       internalNote: showNote && internalNote.trim() ? internalNote.trim() : undefined,
+      invoiceFormat: selectedFormat,
     })
   }
 
@@ -855,6 +867,40 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
 
       {/* Auto-print & Commit Button */}
       <div className="space-y-2 pt-1">
+        {/* Bill Format Quick Switcher */}
+        <div className="flex items-center justify-between py-1 px-2.5 bg-surface-container-low rounded-DEFAULT border border-outline-variant/30">
+          <div className="flex items-center gap-1.5 text-on-surface-variant font-label-sm text-label-sm">
+            <span className="material-symbols-outlined text-[15px]">tune</span>
+            <span>Bill Format:</span>
+          </div>
+          <div className="flex items-center bg-surface-container p-0.5 rounded-DEFAULT">
+            <button
+              type="button"
+              onClick={() => setSelectedFormat('a4')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-DEFAULT font-label-sm text-[11px] transition-all cursor-pointer ${
+                selectedFormat === 'a4'
+                  ? 'bg-surface-container-lowest text-on-surface font-semibold shadow-2xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[14px] text-secondary">description</span>
+              <span>Letter / A4</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedFormat('thermal')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-DEFAULT font-label-sm text-[11px] transition-all cursor-pointer ${
+                selectedFormat === 'thermal'
+                  ? 'bg-surface-container-lowest text-on-surface font-semibold shadow-2xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[14px]">receipt</span>
+              <span>80mm Thermal</span>
+            </button>
+          </div>
+        </div>
+
         <label className="flex items-center gap-2 cursor-pointer select-none">
           <input
             id="print-receipt-toggle"
@@ -864,9 +910,9 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
             className="w-3.5 h-3.5 accent-primary rounded-DEFAULT cursor-pointer"
           />
           <span className="font-label-sm text-label-sm text-on-surface-variant">
-            {settings.invoiceFormat === 'a4'
-              ? 'Print / View Commercial Invoice (A4)'
-              : 'Print Physical Thermal Receipt & Auto-cut'}
+            {selectedFormat === 'a4'
+              ? 'Print / View Commercial Invoice (Letter / A4)'
+              : 'Print Physical Thermal Receipt (80mm)'}
           </span>
         </label>
         <button

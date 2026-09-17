@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Printer, Download, X } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import type { BillingInvoice, BillTemplateConfig } from '../../types/pos'
@@ -25,10 +25,33 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   templateOverride,
   onConfirmBilling,
 }) => {
-  const { settings, showToast } = usePOS()
-  const activeFormat =
-    formatOverride || invoice?.invoiceFormat || settings.invoiceFormat || 'thermal'
+  const { settings, showToast, updateInvoiceFormat } = usePOS()
+
+  const getInitialFormat = (): 'a4' | 'thermal' => {
+    if (formatOverride) return formatOverride
+    if (invoice?.invoiceFormat) return invoice.invoiceFormat
+    if (settings.invoiceFormat) return settings.invoiceFormat
+    return 'a4'
+  }
+
+  const [activeFormat, setActiveFormat] = useState<'a4' | 'thermal'>(getInitialFormat)
+
+  useEffect(() => {
+    setActiveFormat(getInitialFormat())
+  }, [invoice?.id, invoice?.invoiceFormat, formatOverride, settings.invoiceFormat])
+
   const format = activeFormat === 'a4' ? 'horizontal' : 'thermal'
+
+  const handleToggleFormat = (newFmt: 'a4' | 'thermal') => {
+    setActiveFormat(newFmt)
+    if (invoice && invoice.id && !invoice.id.includes('PREVIEW') && updateInvoiceFormat) {
+      updateInvoiceFormat(invoice.id, newFmt)
+      showToast(
+        `Switched view to ${newFmt === 'a4' ? 'Commercial Invoice (Letter / A4)' : '80mm Thermal Slip'}`,
+        'info'
+      )
+    }
+  }
 
   const tmpl: BillTemplateConfig = {
     invoiceTitle: 'TAX INVOICE',
@@ -212,14 +235,48 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
           format === 'horizontal' ? 'max-w-4xl' : 'max-w-md'
         }`}
       >
-        {/* Floating Close Button */}
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute top-3 right-3 z-20 p-1.5 rounded-full bg-white/90 hover:bg-white text-slate-400 hover:text-slate-700 shadow-xs border border-slate-200 transition-colors cursor-pointer"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        {/* Top Control Bar with Format Switcher & Close */}
+        <div className="flex items-center justify-between p-3 px-4 sm:px-6 border-b border-slate-200 bg-white z-10 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-[11px] text-slate-500 uppercase tracking-wider hidden sm:inline-block">
+              Print Format:
+            </span>
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+              <button
+                type="button"
+                onClick={() => handleToggleFormat('a4')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
+                  activeFormat === 'a4'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[16px] text-teal-600">description</span>
+                <span>Letter / A4 Full Size</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleFormat('thermal')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
+                  activeFormat === 'thermal'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[16px] text-slate-700">receipt</span>
+                <span>80mm Thermal Slip</span>
+              </button>
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
         {/* Scrollable Receipt Body */}
         <div className="p-4 sm:p-6 overflow-y-auto bg-slate-100/70 flex-1 flex flex-col items-center">

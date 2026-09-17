@@ -237,8 +237,8 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
             </div>
           )}
 
-          {/* Timestamp Metadata */}
-          <div className="grid grid-cols-2 gap-2 p-2.5 bg-surface-container rounded-DEFAULT">
+          {/* Timestamp & Format Metadata */}
+          <div className="grid grid-cols-3 gap-2 p-2.5 bg-surface-container rounded-DEFAULT">
             <div className="flex flex-col">
               <span className="font-label-sm text-[10px] uppercase text-on-surface-variant">
                 Date
@@ -253,6 +253,17 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
               </span>
               <span className="font-mono-numeric-sm text-mono-numeric-sm text-on-surface font-medium mt-0.5">
                 {invoice.timestamp}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="font-label-sm text-[10px] uppercase text-on-surface-variant">
+                Format
+              </span>
+              <span className="inline-flex items-center gap-1 font-label-sm text-[11px] font-semibold text-secondary mt-0.5 truncate">
+                <span className="material-symbols-outlined text-[14px]">
+                  {invoice.invoiceFormat === 'thermal' ? 'receipt' : 'description'}
+                </span>
+                <span>{invoice.invoiceFormat === 'thermal' ? '80mm Thermal' : 'Letter / A4'}</span>
               </span>
             </div>
           </div>
@@ -410,15 +421,15 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
               className="flex items-center justify-center gap-2 bg-primary hover:bg-inverse-surface text-on-primary p-3 px-4 min-h-[46px] rounded-DEFAULT font-label-md text-label-md font-semibold transition-all shadow-sm cursor-pointer active:scale-[0.99]"
             >
               <span className="material-symbols-outlined text-[20px]">print</span>
-              <span>Print Receipt</span>
+              <span>Print Bill</span>
             </button>
             <button
               type="button"
-              onClick={() => showToast(`Downloaded ${displayInvoiceId}.pdf`, 'info')}
+              onClick={() => onOpenReceipt(invoice)}
               className="flex items-center justify-center gap-2 bg-surface-container-lowest hover:bg-surface-container text-on-surface p-3 px-4 min-h-[46px] rounded-DEFAULT font-label-md text-label-md font-semibold transition-all shadow-sm border border-outline-variant/40 cursor-pointer active:scale-[0.99]"
             >
               <span className="material-symbols-outlined text-[20px]">picture_as_pdf</span>
-              <span>Download PDF</span>
+              <span>View & Save PDF</span>
             </button>
           </div>
 

@@ -4,6 +4,7 @@ import {
   createBillingDoc,
   createBillingDocInTransaction,
   updateBillingStatusDoc,
+  updateBillingFormatDoc,
   deleteBillingDoc,
   subscribeBillings,
 } from '../repositories/billing.repository'
@@ -68,7 +69,7 @@ export function mapFirestoreBillingToUI(b: FirestoreBilling): UIBillingInvoice {
     paymentMethod: b.billMode === 'upi' ? 'UPI / QR' : b.billMode === 'card' ? 'Card' : 'Cash',
     status: 'completed' as InvoiceStatus,
     internalNote: b.internalNote,
-    invoiceFormat: (b as any).invoiceFormat || 'thermal',
+    invoiceFormat: (b as any).invoiceFormat || 'a4',
     timestamp: formatDateTime(b.createdAt),
     date: formatDate(b.createdAt),
   }
@@ -164,7 +165,7 @@ export const billingService = {
       discountAmount: invoiceData.discountAmount,
       total: invoiceData.netTotal,
       billMode: invoiceData.billMode,
-      invoiceFormat: invoiceData.invoiceFormat || 'thermal',
+      invoiceFormat: invoiceData.invoiceFormat || 'a4',
       ...(invoiceData.internalNote ? { internalNote: invoiceData.internalNote } : {}),
       createdAt: { seconds: nowSeconds, nanoseconds: 0 },
       updatedAt: { seconds: nowSeconds, nanoseconds: 0 },
@@ -229,6 +230,12 @@ export const billingService = {
   async refundInvoice(billingId: string): Promise<void> {
     if (db) {
       await updateBillingStatusDoc(billingId, 'refunded')
+    }
+  },
+
+  async updateInvoiceFormat(billingId: string, invoiceFormat: 'thermal' | 'a4'): Promise<void> {
+    if (db) {
+      await updateBillingFormatDoc(billingId, invoiceFormat)
     }
   },
 

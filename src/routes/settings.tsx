@@ -38,7 +38,7 @@ function SettingsPage() {
     showDynamicQrOnBill: settings.showDynamicQrOnBill ?? true,
     dynamicQrHeader: settings.dynamicQrHeader || 'Rate us on Google & Review',
     upiId: settings.upiId || '',
-    invoiceFormat: settings.invoiceFormat || 'thermal',
+    invoiceFormat: settings.invoiceFormat || 'a4',
     billTemplate: settings.billTemplate,
     primaryColor: settings.primaryColor || '#000000',
     secondaryColor: settings.secondaryColor || '#006a63',
@@ -73,7 +73,7 @@ function SettingsPage() {
         showDynamicQrOnBill: settings.showDynamicQrOnBill ?? true,
         dynamicQrHeader: settings.dynamicQrHeader || 'Rate us on Google & Review',
         upiId: settings.upiId || '',
-        invoiceFormat: settings.invoiceFormat || 'thermal',
+        invoiceFormat: settings.invoiceFormat || 'a4',
         billTemplate: settings.billTemplate,
         primaryColor: settings.primaryColor || '#000000',
         secondaryColor: settings.secondaryColor || '#006a63',
@@ -187,7 +187,7 @@ function SettingsPage() {
               logoUrl: draft.logoUrl,
               logoName: draft.logoName,
               taxRatePercent: draft.taxRatePercent,
-              invoiceFormat: (draft.invoiceFormat as 'thermal' | 'a4') || 'thermal',
+              invoiceFormat: (draft.invoiceFormat as 'thermal' | 'a4') || 'a4',
             }}
             onChange={handleFieldChange}
           />

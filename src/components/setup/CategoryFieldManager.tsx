@@ -53,14 +53,7 @@ export const CategoryFieldManager: React.FC = () => {
 
   // Custom Fields Selection & Clipboard State
   const [selectedFieldIds, setSelectedFieldIds] = useState<Set<string>>(new Set())
-  const [copiedFields, setCopiedFields] = useState<CategoryCustomField[]>(() => {
-    try {
-      const stored = localStorage.getItem('billo_copied_custom_fields')
-      return stored ? JSON.parse(stored) : []
-    } catch {
-      return []
-    }
-  })
+  const [copiedFields, setCopiedFields] = useState<CategoryCustomField[]>([])
 
   // Delete Category Confirmation Modal
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
@@ -448,11 +441,6 @@ export const CategoryFieldManager: React.FC = () => {
       return
     }
     setCopiedFields(toCopy)
-    try {
-      localStorage.setItem('billo_copied_custom_fields', JSON.stringify(toCopy))
-    } catch (err) {
-      console.warn('Failed to persist copied fields to localStorage', err)
-    }
     showToast(
       `Copied ${toCopy.length} custom field${toCopy.length > 1 ? 's' : ''} to clipboard`,
       'success'
