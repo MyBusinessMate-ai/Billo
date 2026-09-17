@@ -112,6 +112,7 @@ export interface BillingInvoice {
   changeDue?: number
   status: InvoiceStatus
   internalNote?: string
+  invoiceFormat?: 'thermal' | 'a4'
   timestamp: string
   date: string
 }

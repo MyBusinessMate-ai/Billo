@@ -122,8 +122,12 @@ export function decrementStockInTransaction(
 ): void {
   if (!db) return
   const ref = doc(db, COLLECTIONS.PRODUCTS, productId)
-  transaction.update(ref as unknown as { id: string; path: string }, {
-    quantity: increment(-quantitySold) as unknown as number,
-    updatedAt: timestampPayload,
-  })
+  transaction.set(
+    ref as unknown as { id: string; path: string },
+    {
+      quantity: increment(-quantitySold) as unknown as number,
+      updatedAt: timestampPayload,
+    },
+    { merge: true }
+  )
 }

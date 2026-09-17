@@ -10,6 +10,7 @@ import {
   serverTimestamp,
   updateDoc,
   deleteDoc,
+  setDoc,
   type Unsubscribe,
   type DocumentReference,
 } from 'firebase/firestore'
@@ -78,6 +79,12 @@ export function createBillingDocInTransaction(
   if (!db) throw new Error('Firestore is not initialized')
   const ref = doc(db, COLLECTIONS.BILLINGS, billing.billingId)
   transaction.set(ref as unknown as { id: string; path: string }, cleanFirestoreData(billing))
+}
+
+export async function createBillingDoc(billing: Billing): Promise<void> {
+  if (!db) throw new Error('Firestore is not initialized')
+  const ref = doc(db, COLLECTIONS.BILLINGS, billing.billingId)
+  await setDoc(ref, cleanFirestoreData(billing))
 }
 
 export async function updateBillingStatusDoc(billingId: string, status: string): Promise<void> {

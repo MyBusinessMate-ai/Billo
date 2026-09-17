@@ -852,7 +852,9 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
             className="w-3.5 h-3.5 accent-primary rounded-DEFAULT cursor-pointer"
           />
           <span className="font-label-sm text-label-sm text-on-surface-variant">
-            Print Physical Thermal Receipt & Auto-cut
+            {settings.invoiceFormat === 'a4'
+              ? 'Print / View Commercial Invoice (A4)'
+              : 'Print Physical Thermal Receipt & Auto-cut'}
           </span>
         </label>
         <button

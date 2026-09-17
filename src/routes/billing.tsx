@@ -284,6 +284,16 @@ function MakeBillingPage() {
     setLedgerDiscount({ discountAmount: 0 })
   }
 
+  const handleConfirmFromModal = () => {
+    if (items.length === 0) return
+    handleConfirmBilling({
+      paymentMethod: 'Cash',
+      discountAmount: ledgerDiscount.discountAmount || 0,
+      discountCode: ledgerDiscount.discountCode,
+      printReceipt: true,
+    })
+  }
+
   const handleOpenPreview = () => {
     // If there are items in the cart, preview the live cart
     if (items.length > 0) {
@@ -468,6 +478,7 @@ function MakeBillingPage() {
         invoice={createdInvoice}
         isOpen={isReceiptModalOpen}
         onClose={() => setIsReceiptModalOpen(false)}
+        onConfirmBilling={items.length > 0 ? handleConfirmFromModal : undefined}
       />
 
       {/* Confirmation Modal for Clearing All Items via ESC or Button */}

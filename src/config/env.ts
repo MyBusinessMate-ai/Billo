@@ -9,6 +9,9 @@ export interface FirebaseClientConfig {
 }
 
 const getEnv = (key: string, fallback: string = ''): string => {
+  if (typeof process !== 'undefined' && process.env && process.env[key]) {
+    return process.env[key]
+  }
   if (typeof import.meta !== 'undefined' && import.meta.env) {
     return (import.meta.env[key] as string) || fallback
   }

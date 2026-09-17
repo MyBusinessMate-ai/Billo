@@ -112,6 +112,7 @@ export const BillingModeSchema = z.enum(['cash', 'upi', 'card'])
 export type BillingMode = z.infer<typeof BillingModeSchema>
 
 export const BillingItemSchema = z.object({
+  productId: z.string().optional(),
   categoryId: CategoryIdSchema.or(z.string().min(1, 'Category ID is required')),
   categoryName: z.string().min(1, 'Category name is required'),
   itemName: z.string().optional(),
@@ -154,6 +155,7 @@ export const BillingSchema = z.object({
   discountAmount: z.number().optional(),
   total: z.number().nonnegative('Billing total must be non-negative'),
   billMode: BillingModeSchema,
+  invoiceFormat: z.enum(['thermal', 'a4']).optional(),
   internalNote: z.string().optional(),
   createdAt: FirestoreTimestampSchema,
   updatedAt: FirestoreTimestampSchema,

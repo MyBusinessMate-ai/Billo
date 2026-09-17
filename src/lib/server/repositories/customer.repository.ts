@@ -105,10 +105,14 @@ export function updateCustomerStatsInTransaction(
 ): void {
   if (!db) return
   const ref = doc(db, COLLECTIONS.CUSTOMERS, customerId)
-  transaction.update(ref as unknown as { id: string; path: string }, {
-    visits: increment(1) as unknown as number,
-    totalSpend: increment(totalSpend) as unknown as number,
-    lastVisitAt: timestampPayload,
-    updatedAt: timestampPayload,
-  })
+  transaction.set(
+    ref as unknown as { id: string; path: string },
+    {
+      visits: increment(1) as unknown as number,
+      totalSpend: increment(totalSpend) as unknown as number,
+      lastVisitAt: timestampPayload,
+      updatedAt: timestampPayload,
+    },
+    { merge: true }
+  )
 }

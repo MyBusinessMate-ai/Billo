@@ -14,6 +14,7 @@ interface ThermalReceiptModalProps {
   onClose: () => void
   formatOverride?: 'thermal' | 'a4'
   templateOverride?: BillTemplateConfig
+  onConfirmBilling?: () => void
 }
 
 export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
@@ -22,9 +23,10 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   onClose,
   formatOverride,
   templateOverride,
+  onConfirmBilling,
 }) => {
   const { settings, showToast } = usePOS()
-  const activeFormat = formatOverride || settings.invoiceFormat || 'thermal'
+  const activeFormat = formatOverride || invoice?.invoiceFormat || settings.invoiceFormat || 'thermal'
   const format = activeFormat === 'a4' ? 'horizontal' : 'thermal'
 
   const tmpl: BillTemplateConfig = {
@@ -524,6 +526,16 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
         {/* Modal Actions */}
         <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
+            {invoice.id.includes('PREVIEW') && onConfirmBilling && (
+              <button
+                type="button"
+                onClick={onConfirmBilling}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                <span>Confirm & Save Bill</span>
+              </button>
+            )}
             <button
               onClick={handlePrint}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"

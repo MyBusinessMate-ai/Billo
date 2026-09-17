@@ -3,6 +3,7 @@ import type {
   Customer,
   Product,
   BillingInvoice,
+  InvoiceStatus,
   MediaAsset,
   StoreSettings,
   AssetCategory,
@@ -121,7 +122,15 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [categories, setCategories] = useState<Category[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
-  const [invoices, setInvoices] = useState<BillingInvoice[]>([])
+  const [invoices, setInvoices] = useState<BillingInvoice[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = localStorage.getItem('billo_settled_invoices')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
   const [nextInvoiceSequence, setNextInvoiceSequence] = useState<string>(
     `INV-${new Date().getFullYear()}-000001`
   )
@@ -217,7 +226,19 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     })
 
     const unsubBillings = billingService.subscribe((liveInvoices) => {
-      setInvoices(liveInvoices)
+      if (!liveInvoices) return
+      setInvoices((prev) => {
+        const liveIds = new Set(liveInvoices.map((inv) => inv.id.replace('#', '')))
+        // Keep any local settled invoices that are not yet represented in Firestore
+        const unsynced = prev.filter(
+          (inv) => !liveIds.has(inv.id.replace('#', '')) && !inv.id.includes('PREVIEW')
+        )
+        const merged = [...liveInvoices, ...unsynced]
+        try {
+          localStorage.setItem('billo_settled_invoices', JSON.stringify(merged))
+        } catch {}
+        return merged
+      })
     })
 
     const unsubBillingCounter = counterService.subscribeBillingSequence((liveSeq) => {
@@ -695,9 +716,22 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...newInvoice,
       customer: resolvedCustomer,
       items: normalizedItems,
+      invoiceFormat: invoiceData.invoiceFormat || settings.invoiceFormat || 'thermal',
     }
 
-    setInvoices((prev) => [invoiceWithCustomer, ...prev])
+    setInvoices((prev) => {
+      const updated = [invoiceWithCustomer, ...prev]
+      try {
+        localStorage.setItem('billo_settled_invoices', JSON.stringify(updated))
+      } catch {}
+      return updated
+    })
+
+    // Advance local sequential invoice ID
+    const year = new Date().getFullYear()
+    const nextSeqNum = nextNumericId + 1
+    const nextFormattedSeq = `INV-${year}-${String(nextSeqNum).padStart(6, '0')}`
+    setNextInvoiceSequence(nextFormattedSeq)
 
     // Find category ID for line items
     const findCatId = (catName: string) => {
@@ -733,12 +767,19 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : invoiceData.paymentMethod.toUpperCase().includes('CARD')
             ? 'card'
             : 'cash',
+        invoiceFormat: invoiceData.invoiceFormat || settings.invoiceFormat || 'thermal',
         internalNote: invoiceData.internalNote,
       })
       .then(({ billingId }) => {
-        setInvoices((prev) =>
-          prev.map((inv) => (inv.id === tempId ? { ...inv, id: `#${billingId}` } : inv))
-        )
+        setInvoices((prev) => {
+          const updated = prev.map((inv) =>
+            inv.id === tempId ? { ...inv, id: `#${billingId}` } : inv
+          )
+          try {
+            localStorage.setItem('billo_settled_invoices', JSON.stringify(updated))
+          } catch {}
+          return updated
+        })
       })
       .catch((err) => {
         console.warn('[POSContext] Billing transaction notice:', err)
@@ -752,23 +793,33 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }
 
   const refundInvoice = (id: string) => {
-    setInvoices((prev) =>
-      prev.map((inv) => {
+    setInvoices((prev) => {
+      const updated = prev.map((inv) => {
         if (inv.id === id) {
-          return { ...inv, status: 'refunded' }
+          return { ...inv, status: 'refunded' as InvoiceStatus }
         }
         return inv
       })
-    )
+      try {
+        localStorage.setItem('billo_settled_invoices', JSON.stringify(updated))
+      } catch {}
+      return updated
+    })
     billingService.refundInvoice(id).catch(() => {})
     showToast(`Invoice ${id} marked as refunded`, 'warning')
   }
 
   const deleteInvoice = async (id: string) => {
     const cleanId = id.startsWith('#') ? id.slice(1) : id
-    setInvoices((prev) =>
-      prev.filter((inv) => inv.id !== id && inv.id !== `#${cleanId}` && inv.id !== cleanId)
-    )
+    setInvoices((prev) => {
+      const filtered = prev.filter(
+        (inv) => inv.id !== id && inv.id !== `#${cleanId}` && inv.id !== cleanId
+      )
+      try {
+        localStorage.setItem('billo_settled_invoices', JSON.stringify(filtered))
+      } catch {}
+      return filtered
+    })
     try {
       await billingService.deleteInvoice(cleanId)
       showToast(`Invoice #${cleanId} deleted successfully`, 'success')
