@@ -84,13 +84,13 @@ export function printElementContent(elementId: string, options: PrintOptions = {
 
   const verticalStyles = `
     @page {
-      size: 8.5in 11in;
-      margin: 0.4in 0.4in;
+      size: A4 portrait;
+      margin: 8mm 8mm;
     }
     html, body {
       width: 100%;
-      height: 100%;
-      max-width: 8.5in;
+      height: auto !important;
+      min-height: 100%;
       margin: 0 auto;
       padding: 0;
       background: #ffffff !important;
@@ -113,21 +113,41 @@ export function printElementContent(elementId: string, options: PrintOptions = {
     }
     #print-root {
       width: 100%;
-      min-height: 10in;
       display: block;
+      margin: 0;
+      padding: 0;
     }
+    #printable-bill-container,
     #printable-horizontal-invoice {
+      box-shadow: none !important;
+      border: none !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      display: block !important;
+    }
+    .invoice-page {
       border: 2px solid #000000 !important;
       box-shadow: none !important;
       max-width: 7.7in !important;
       width: 100% !important;
-      min-height: 10in !important;
-      height: auto !important;
+      min-height: 10.0in !important;
+      height: 10.0in !important;
       box-sizing: border-box !important;
       display: flex !important;
       flex-direction: column !important;
       justify-content: space-between !important;
       margin: 0 auto !important;
+      padding: 14px !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      background: #ffffff !important;
+    }
+    .invoice-page:not(:last-child) {
+      page-break-after: always !important;
+      break-after: page !important;
+      margin-bottom: 0 !important;
     }
     .print-keep-together {
       page-break-inside: avoid !important;

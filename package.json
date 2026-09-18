@@ -10,10 +10,12 @@
     "generate-routes": "tsr generate",
     "build": "vite build",
     "preview": "vite preview",
+    "typecheck": "npx tsc --noEmit",
     "format": "prettier --write .",
     "format:write": "prettier --write .",
     "format:check": "prettier --check .",
-    "db:seed": "node scripts/seed.js"
+    "db:seed": "node scripts/seed.js",
+    "seed:test-bills": "node scripts/seed-test-bills.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",

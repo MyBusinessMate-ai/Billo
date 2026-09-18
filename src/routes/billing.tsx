@@ -11,7 +11,8 @@ import { usePOS } from '../context/POSContext'
 function playScannerBeep() {
   try {
     const AudioContextClass =
-      window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
     if (!AudioContextClass) return
     const ctx = new AudioContextClass()
     const osc = ctx.createOscillator()
@@ -76,30 +77,27 @@ function MakeBillingPage() {
     []
   )
 
-  const handleAddItem = useCallback(
-    (item: BillingItem) => {
-      setItems((prev) => {
-        const existingIndex = prev.findIndex(
-          (i) => i.productId === item.productId && i.name === item.name
-        )
-        if (existingIndex > -1) {
-          const updated = [...prev]
-          const existing = updated[existingIndex]
-          const nextQty = existing.quantity + (item.quantity || 1)
-          const lineGross = nextQty * existing.price
-          const lineDisc = existing.discountAmount || 0
-          updated[existingIndex] = {
-            ...existing,
-            quantity: nextQty,
-            total: Math.max(0, lineGross - lineDisc),
-          }
-          return updated
+  const handleAddItem = useCallback((item: BillingItem) => {
+    setItems((prev) => {
+      const existingIndex = prev.findIndex(
+        (i) => i.productId === item.productId && i.name === item.name
+      )
+      if (existingIndex > -1) {
+        const updated = [...prev]
+        const existing = updated[existingIndex]
+        const nextQty = existing.quantity + (item.quantity || 1)
+        const lineGross = nextQty * existing.price
+        const lineDisc = existing.discountAmount || 0
+        updated[existingIndex] = {
+          ...existing,
+          quantity: nextQty,
+          total: Math.max(0, lineGross - lineDisc),
         }
-        return [item, ...prev]
-      })
-    },
-    []
-  )
+        return updated
+      }
+      return [item, ...prev]
+    })
+  }, [])
 
   // Global USB Barcode Scanner HID Wedge Listener
   useEffect(() => {

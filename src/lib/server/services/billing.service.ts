@@ -9,10 +9,7 @@ import {
   subscribeBillings,
 } from '../repositories/billing.repository'
 import { getNextSequentialId } from '../repositories/counter.repository'
-import {
-  decrementStockInTransaction,
-  restockProductDoc,
-} from '../repositories/product.repository'
+import { decrementStockInTransaction, restockProductDoc } from '../repositories/product.repository'
 import {
   updateCustomerStatsInTransaction,
   decrementCustomerStatsDoc,

@@ -4,7 +4,9 @@ export const HardwareStatusCard: React.FC = () => {
   return (
     <div className="bg-surface-container-low p-pad-sm rounded-DEFAULT flex flex-wrap items-center justify-between gap-2 border border-outline-variant/30">
       <div className="flex items-center gap-2.5">
-        <span className="material-symbols-outlined text-secondary text-[20px]">barcode_scanner</span>
+        <span className="material-symbols-outlined text-secondary text-[20px]">
+          barcode_scanner
+        </span>
         <div>
           <span className="font-label-sm text-label-sm text-on-surface font-semibold block">
             USB Barcode Wedge Engine

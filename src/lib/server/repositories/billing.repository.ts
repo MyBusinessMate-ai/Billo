@@ -97,7 +97,10 @@ export async function updateBillingStatusDoc(billingId: string, status: string):
   })
 }
 
-export async function updateBillingFormatDoc(billingId: string, invoiceFormat: string): Promise<void> {
+export async function updateBillingFormatDoc(
+  billingId: string,
+  invoiceFormat: string
+): Promise<void> {
   if (!db) return
   const cleanId = billingId.startsWith('#') ? billingId.slice(1) : billingId
   const ref = doc(db, COLLECTIONS.BILLINGS, cleanId)
