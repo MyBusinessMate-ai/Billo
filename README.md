@@ -1,7 +1,7 @@
 # Retail Billing & POS Management System
 
 A modern, fast, and white-label **Point of Sale (POS) & Smart Billing System** built with **TanStack Start**, **React 19**, **Tailwind CSS**, **Firebase Firestore**, and **Cloudinary**.
-
+ 
 ---
 
 ## Features
