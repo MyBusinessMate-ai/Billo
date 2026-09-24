@@ -3,6 +3,7 @@ import {
   fetchRecentBillings,
   createBillingDoc,
   createBillingDocInTransaction,
+  updateBillingDoc,
   updateBillingStatusDoc,
   updateBillingFormatDoc,
   deleteBillingDoc,
@@ -29,6 +30,7 @@ import type {
   BillingInvoice as UIBillingInvoice,
   BillingItem as UIBillingItem,
   InvoiceStatus,
+  BillTemplateConfig,
 } from '../../../types/pos'
 
 export function mapFirestoreBillingToUI(b: FirestoreBilling): UIBillingInvoice {
@@ -53,6 +55,11 @@ export function mapFirestoreBillingToUI(b: FirestoreBilling): UIBillingInvoice {
   const subtotal = b.subtotal ?? (computedSubtotal > 0 ? computedSubtotal : b.total)
   const taxAmount = b.taxAmount ?? Math.round(subtotal * 0.05 * 100) / 100
   const discountAmount = b.discountAmount ?? 0
+
+  let formattedEditedAt: string | undefined = undefined
+  if (b.editedAt) {
+    formattedEditedAt = formatDateTime(b.editedAt)
+  }
 
   return {
     id: `#${b.billingId}`,
@@ -79,8 +86,14 @@ export function mapFirestoreBillingToUI(b: FirestoreBilling): UIBillingInvoice {
     status: 'completed' as InvoiceStatus,
     internalNote: b.internalNote,
     invoiceFormat: (b as any).invoiceFormat || 'a4',
-    timestamp: formatDateTime(b.createdAt),
-    date: formatDate(b.createdAt),
+    isEdited: Boolean(b.isEdited),
+    editedAt: formattedEditedAt,
+    termsText: b.termsText,
+    billTemplateSnapshot: b.billTemplateSnapshot as BillTemplateConfig | undefined,
+    invoiceDate: b.invoiceDate,
+    invoiceTime: b.invoiceTime,
+    timestamp: b.invoiceTime || formatDateTime(b.createdAt),
+    date: b.invoiceDate || formatDate(b.createdAt),
   }
 }
 
@@ -135,6 +148,10 @@ export const billingService = {
     billMode: 'cash' | 'upi' | 'card'
     invoiceFormat?: 'thermal' | 'a4'
     internalNote?: string
+    termsText?: string
+    billTemplateSnapshot?: BillTemplateConfig
+    invoiceDate?: string
+    invoiceTime?: string
   }): Promise<{ billingId: string }> {
     const year = new Date().getFullYear()
     let generatedBillingId = `INV-${year}-${Math.floor(100000 + Math.random() * 900000)}`
@@ -182,6 +199,13 @@ export const billingService = {
       billMode: invoiceData.billMode,
       invoiceFormat: invoiceData.invoiceFormat || 'a4',
       ...(invoiceData.internalNote ? { internalNote: invoiceData.internalNote } : {}),
+      ...(invoiceData.termsText ? { termsText: invoiceData.termsText } : {}),
+      ...(invoiceData.billTemplateSnapshot
+        ? { billTemplateSnapshot: invoiceData.billTemplateSnapshot as any }
+        : {}),
+      ...(invoiceData.invoiceDate ? { invoiceDate: invoiceData.invoiceDate } : {}),
+      ...(invoiceData.invoiceTime ? { invoiceTime: invoiceData.invoiceTime } : {}),
+      isEdited: false,
       createdAt: { seconds: nowSeconds, nanoseconds: 0 },
       updatedAt: { seconds: nowSeconds, nanoseconds: 0 },
     }
@@ -240,6 +264,104 @@ export const billingService = {
     }
 
     return { billingId: generatedBillingId }
+  },
+
+  async updateInvoice(
+    billingId: string,
+    invoiceData: {
+      customerId?: string
+      customerName?: string
+      customerPhone?: string
+      customerEmail?: string
+      customerGstin?: string
+      items: Array<{
+        productId?: string
+        productName?: string
+        itemName?: string
+        description?: string
+        categoryId: string
+        categoryName: string
+        quantity: number
+        unitPrice: number
+        total: number
+        hsn?: string
+        gstPercent?: number
+        discountAmount?: number
+        discountPercent?: number
+        customFields?: Record<string, any>
+        customFieldConfigs?: CategoryCustomField[]
+      }>
+      subtotal: number
+      taxPercent: number
+      taxAmount: number
+      discountCode?: string
+      discountAmount: number
+      netTotal: number
+      roundOff?: number
+      placeOfSupply?: string
+      isInterState?: boolean
+      billMode: 'cash' | 'upi' | 'card'
+      invoiceFormat?: 'thermal' | 'a4'
+      internalNote?: string
+      termsText?: string
+      billTemplateSnapshot?: BillTemplateConfig
+      invoiceDate?: string
+      invoiceTime?: string
+    }
+  ): Promise<void> {
+    const cleanId = billingId.startsWith('#') ? billingId.slice(1) : billingId
+    const nowSeconds = Math.floor(Date.now() / 1000)
+
+    const firestoreItems: FirestoreBillingItem[] = invoiceData.items.map((it) => ({
+      ...(it.productId ? { productId: it.productId } : {}),
+      categoryId: it.categoryId || 'CAT-000001',
+      categoryName: it.categoryName || 'General',
+      itemName: it.productName || it.itemName || 'Item',
+      ...(it.description ? { description: it.description } : {}),
+      quantity: it.quantity,
+      unitPrice: it.unitPrice,
+      total: it.total,
+      ...(it.hsn ? { hsn: it.hsn } : {}),
+      ...(it.gstPercent !== undefined ? { gstPercent: it.gstPercent } : {}),
+      ...(it.discountAmount !== undefined ? { discountAmount: it.discountAmount } : {}),
+      ...(it.discountPercent !== undefined ? { discountPercent: it.discountPercent } : {}),
+      ...(it.customFields ? { customFields: it.customFields } : {}),
+      ...(it.customFieldConfigs ? { customFieldConfigs: it.customFieldConfigs } : {}),
+    }))
+
+    const updatePayload: Partial<FirestoreBilling> = {
+      ...(invoiceData.customerId !== undefined ? { customerId: invoiceData.customerId } : {}),
+      customerName: invoiceData.customerName ? invoiceData.customerName.toUpperCase() : 'Walk-in Customer',
+      customerPhone: invoiceData.customerPhone || '—',
+      customerEmail: invoiceData.customerEmail ? invoiceData.customerEmail.toLowerCase() : '',
+      customerGstin: invoiceData.customerGstin ? invoiceData.customerGstin.toUpperCase() : '',
+      items: firestoreItems,
+      subtotal: invoiceData.subtotal,
+      taxPercent: invoiceData.taxPercent,
+      taxAmount: invoiceData.taxAmount,
+      discountCode: invoiceData.discountCode || '',
+      discountAmount: invoiceData.discountAmount,
+      total: invoiceData.netTotal,
+      roundOff: invoiceData.roundOff ?? 0,
+      placeOfSupply: invoiceData.placeOfSupply || '',
+      isInterState: Boolean(invoiceData.isInterState),
+      billMode: invoiceData.billMode,
+      invoiceFormat: invoiceData.invoiceFormat || 'a4',
+      internalNote: invoiceData.internalNote || '',
+      ...(invoiceData.termsText !== undefined ? { termsText: invoiceData.termsText } : {}),
+      ...(invoiceData.billTemplateSnapshot !== undefined
+        ? { billTemplateSnapshot: invoiceData.billTemplateSnapshot as any }
+        : {}),
+      ...(invoiceData.invoiceDate ? { invoiceDate: invoiceData.invoiceDate } : {}),
+      ...(invoiceData.invoiceTime ? { invoiceTime: invoiceData.invoiceTime } : {}),
+      isEdited: true,
+      editedAt: { seconds: nowSeconds, nanoseconds: 0 },
+      updatedAt: { seconds: nowSeconds, nanoseconds: 0 },
+    }
+
+    if (db) {
+      await updateBillingDoc(cleanId, updatePayload)
+    }
   },
 
   async refundInvoice(billingId: string): Promise<void> {

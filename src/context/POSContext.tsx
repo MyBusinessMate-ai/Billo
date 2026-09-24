@@ -76,6 +76,7 @@ interface POSContextType {
   invoices: BillingInvoice[]
   nextInvoiceSequence: string
   addInvoice: (invoice: Omit<BillingInvoice, 'id' | 'numericId'>) => BillingInvoice
+  updateInvoice: (id: string, updatedData: Partial<BillingInvoice>) => Promise<BillingInvoice>
   getInvoiceById: (id: string) => BillingInvoice | undefined
   updateInvoiceFormat: (id: string, format: 'thermal' | 'a4') => void
   refundInvoice: (id: string) => void
@@ -466,12 +467,13 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }
 
   const addCustomer = (data: Partial<Customer> & { name: string; phone: string }) => {
-    const timeOnly = currentTime ? currentTime.split(' ')[1] : '12:00:00'
+    const timeOnly = currentTime ? currentTime.split(' ')[1] : formatTime(new Date())
+    const dateOnly = currentDate || formatDate(new Date())
     const cleanPhone = sanitizePhone(data.phone)
     const upperName = data.name.trim().toUpperCase()
-    const lowerEmail = data.email
+    const lowerEmail = data.email && data.email.trim()
       ? data.email.trim().toLowerCase()
-      : `${upperName.toLowerCase().replace(/\s+/g, '.')}@example.com`
+      : ''
     const upperGstin = data.gstin ? data.gstin.trim().toUpperCase() : undefined
 
     const newCust: Customer = {
@@ -480,7 +482,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       gstin: upperGstin,
       visits: 1,
       totalSpend: 0,
-      lastVisit: `${currentDate || '2026-09-08'} ${timeOnly}`,
+      lastVisit: `${dateOnly} ${timeOnly}`,
       preferredRail: 'UPI',
       isNew: true,
       ...data,
@@ -626,7 +628,8 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           (cleanPhone.length >= 7 && sanitizePhone(c.phone) === cleanPhone)
       )
 
-      const timeStamp = `${currentDate || '2026-09-08'} ${currentTime ? currentTime.split(' ')[1] : '12:00:00'}`
+      const now = new Date()
+      const timeStamp = `${currentDate || formatDate(now)} ${currentTime ? currentTime.split(' ')[1] : formatTime(now)}`
 
       const normName = invoiceData.customer.name.trim().toUpperCase()
       const normEmail = invoiceData.customer.email
@@ -705,11 +708,23 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: assignedCustomerId,
     }
 
-    const invoiceWithCustomer = {
+    const now = new Date()
+    const liveDate = invoiceData.date || currentDate || formatDate(now)
+    const liveTime = invoiceData.timestamp || (currentTime ? currentTime.split(' ')[1] : formatTime(now))
+
+    const invoiceWithCustomer: BillingInvoice = {
       ...newInvoice,
       customer: resolvedCustomer,
       items: normalizedItems,
       invoiceFormat: invoiceData.invoiceFormat || settings.invoiceFormat || 'a4',
+      isEdited: false,
+      termsText:
+        invoiceData.termsText ||
+        settings.billTemplate?.termsText ||
+        '1. Goods once sold can be exchanged within 7 days with original invoice.\n2. Warranty / guarantee as per manufacturer policy.',
+      billTemplateSnapshot: invoiceData.billTemplateSnapshot || settings.billTemplate,
+      date: liveDate,
+      timestamp: liveTime,
     }
 
     setInvoices((prev) => [invoiceWithCustomer, ...prev])
@@ -767,6 +782,10 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             : 'cash',
         invoiceFormat: invoiceData.invoiceFormat || settings.invoiceFormat || 'a4',
         internalNote: invoiceData.internalNote,
+        termsText: invoiceWithCustomer.termsText,
+        billTemplateSnapshot: invoiceWithCustomer.billTemplateSnapshot,
+        invoiceDate: invoiceWithCustomer.date,
+        invoiceTime: invoiceWithCustomer.timestamp,
       })
       .then(({ billingId }) => {
         setInvoices((prev) =>
@@ -778,6 +797,145 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
 
     return invoiceWithCustomer
+  }
+
+  const updateInvoice = async (
+    id: string,
+    updatedData: Partial<BillingInvoice>
+  ): Promise<BillingInvoice> => {
+    const cleanId = id.startsWith('#') ? id.slice(1) : id
+    const existing = invoices.find(
+      (inv) => inv.id === id || inv.id === `#${cleanId}` || inv.id === cleanId
+    )
+
+    const now = new Date()
+    const timeOnly = currentTime ? currentTime.split(' ')[1] : formatTime(now)
+    const editedAtStr = `${currentDate || formatDate(now)} ${timeOnly}`
+
+    // Normalize item custom fields based on category configuration
+    const normalizedItems = (updatedData.items || existing?.items || []).map((it) => {
+      if (!it.customFields) return it
+      const catObj = categories.find(
+        (c) => c.categoryName.toLowerCase() === (it.category || '').toLowerCase()
+      )
+      const cfConfigs = it.customFieldConfigs || catObj?.customFields || []
+      const mappedFields: Record<string, any> = {}
+      for (const [k, v] of Object.entries(it.customFields)) {
+        const cfg = cfConfigs.find((c) => c.id === k)
+        if (typeof v === 'string' && cfg?.textCasing === 'uppercase') {
+          mappedFields[k] = v.toUpperCase()
+        } else if (typeof v === 'string' && cfg?.textCasing === 'lowercase') {
+          mappedFields[k] = v.toLowerCase()
+        } else {
+          mappedFields[k] = v
+        }
+      }
+      return {
+        ...it,
+        customFields: mappedFields,
+      }
+    })
+
+    const rawCustomer = updatedData.customer || existing?.customer || { name: 'Walk-in Customer', phone: '—' }
+    const resolvedCustomer = {
+      ...rawCustomer,
+      name: (rawCustomer.name || 'Walk-in Customer').toUpperCase(),
+      email: rawCustomer.email && rawCustomer.email.trim() ? rawCustomer.email.trim().toLowerCase() : undefined,
+      gstin: rawCustomer.gstin && rawCustomer.gstin.trim() ? rawCustomer.gstin.trim().toUpperCase() : undefined,
+    }
+
+    const merged: BillingInvoice = {
+      ...(existing || ({} as BillingInvoice)),
+      ...updatedData,
+      id: existing?.id || `#${cleanId}`,
+      numericId: existing?.numericId || parseInt(cleanId.split('-').pop() || '1', 10),
+      customer: resolvedCustomer,
+      items: normalizedItems,
+      isEdited: true,
+      editedAt: editedAtStr,
+      // Preserve date & timestamp unless explicitly provided
+      date: updatedData.date || existing?.date || currentDate || formatDate(now),
+      timestamp: updatedData.timestamp || existing?.timestamp || timeOnly,
+      termsText: updatedData.termsText || existing?.termsText || settings.billTemplate?.termsText,
+      billTemplateSnapshot: updatedData.billTemplateSnapshot || existing?.billTemplateSnapshot || settings.billTemplate,
+      subtotal: updatedData.subtotal ?? existing?.subtotal ?? 0,
+      taxPercent: updatedData.taxPercent ?? existing?.taxPercent ?? (settings.taxRatePercent || 0),
+      taxAmount: updatedData.taxAmount ?? existing?.taxAmount ?? 0,
+      discountAmount: updatedData.discountAmount ?? existing?.discountAmount ?? 0,
+      discountCode: updatedData.discountCode !== undefined ? updatedData.discountCode : existing?.discountCode,
+      netTotal: updatedData.netTotal ?? existing?.netTotal ?? 0,
+      roundOff: updatedData.roundOff !== undefined ? updatedData.roundOff : existing?.roundOff,
+      placeOfSupply: updatedData.placeOfSupply !== undefined ? updatedData.placeOfSupply : existing?.placeOfSupply,
+      isInterState: updatedData.isInterState !== undefined ? updatedData.isInterState : existing?.isInterState,
+      paymentMethod: updatedData.paymentMethod || existing?.paymentMethod || 'Cash',
+      status: (updatedData.status || existing?.status || 'completed') as InvoiceStatus,
+      invoiceFormat: updatedData.invoiceFormat || existing?.invoiceFormat || settings.invoiceFormat || 'a4',
+      internalNote: updatedData.internalNote !== undefined ? updatedData.internalNote : existing?.internalNote,
+    }
+
+    setInvoices((prev) =>
+      prev.map((inv) =>
+        inv.id === id || inv.id === `#${cleanId}` || inv.id === cleanId ? merged : inv
+      )
+    )
+
+    const findCatId = (catName: string) => {
+      const found = categories.find((c) => c.categoryName.toLowerCase() === catName.toLowerCase())
+      return found?.categoryId || 'CAT-000001'
+    }
+
+    try {
+      await billingService.updateInvoice(cleanId, {
+        customerId: merged.customer.id,
+        customerName: merged.customer.name,
+        customerPhone: merged.customer.phone,
+        customerEmail: merged.customer.email,
+        customerGstin: merged.customer.gstin,
+        items: merged.items.map((it) => ({
+          productId: it.productId,
+          productName: it.name,
+          itemName: it.name,
+          description: it.description,
+          categoryId: findCatId(it.category || 'General'),
+          categoryName: it.category || 'General',
+          quantity: it.quantity,
+          unitPrice: it.price,
+          total: it.total,
+          hsn: it.hsn,
+          gstPercent: it.gstPercent,
+          discountAmount: it.discountAmount,
+          discountPercent: it.discountPercent,
+          customFields: it.customFields,
+          customFieldConfigs: it.customFieldConfigs,
+        })),
+        subtotal: merged.subtotal,
+        taxPercent: merged.taxPercent,
+        taxAmount: merged.taxAmount,
+        discountCode: merged.discountCode,
+        discountAmount: merged.discountAmount,
+        netTotal: merged.netTotal,
+        roundOff: merged.roundOff,
+        placeOfSupply: merged.placeOfSupply,
+        isInterState: merged.isInterState,
+        billMode: merged.paymentMethod.toUpperCase().includes('UPI')
+          ? 'upi'
+          : merged.paymentMethod.toUpperCase().includes('CARD')
+            ? 'card'
+            : 'cash',
+        invoiceFormat: merged.invoiceFormat || settings.invoiceFormat || 'a4',
+        internalNote: merged.internalNote,
+        termsText: merged.termsText,
+        billTemplateSnapshot: merged.billTemplateSnapshot || settings.billTemplate,
+        invoiceDate: merged.date,
+        invoiceTime: merged.timestamp,
+      })
+      showToast(`Bill #${cleanId} updated (Marked as Edited)`, 'success')
+    } catch (err) {
+      console.error('[POSContext] updateInvoice error:', err)
+      showToast('Failed to save bill changes to server', 'error')
+    }
+
+    return merged
   }
 
   const getInvoiceById = (id: string) => {
@@ -974,6 +1132,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         invoices,
         nextInvoiceSequence,
         addInvoice,
+        updateInvoice,
         getInvoiceById,
         updateInvoiceFormat,
         refundInvoice,

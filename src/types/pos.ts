@@ -95,6 +95,12 @@ export interface BillingInvoice {
   placeOfSupply?: string
   isInterState?: boolean
   invoiceFormat?: 'thermal' | 'a4'
+  isEdited?: boolean
+  editedAt?: string
+  termsText?: string
+  billTemplateSnapshot?: BillTemplateConfig
+  invoiceDate?: string
+  invoiceTime?: string
   timestamp: string
   date: string
 }

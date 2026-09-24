@@ -15,6 +15,14 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
 }) => {
   const { settings, categories } = usePOS()
 
+  const billTermsText =
+    invoice.termsText !== undefined && invoice.termsText !== null
+      ? invoice.termsText
+      : invoice.billTemplateSnapshot?.termsText !== undefined && invoice.billTemplateSnapshot?.termsText !== null
+        ? invoice.billTemplateSnapshot.termsText
+        : (settings.billTemplate?.termsText ||
+          '1. Goods once sold can be exchanged within 7 days with original invoice.\n2. Warranty / guarantee as per manufacturer policy.')
+
   const tmpl: BillTemplateConfig = {
     invoiceTitle: 'TAX INVOICE',
     invoiceSubtitle: '',
@@ -34,8 +42,6 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
     showRemarks: true,
     showQrCode: true,
     showTerms: true,
-    termsText:
-      '1. Goods once sold can be exchanged within 7 days with original invoice.\n2. Warranty / guarantee as per manufacturer policy.',
     showAuthorizedSignatory: true,
     signatoryText: `For ${settings.storeName || settings.businessName || 'Store Outlet'}`,
     showFooterNotice: true,
@@ -45,7 +51,9 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
     rateLabel: 'Rate (₹)',
     totalLabel: 'Total (₹)',
     ...(settings.billTemplate || {}),
+    ...(invoice.billTemplateSnapshot || {}),
     ...(templateOverride || {}),
+    termsText: billTermsText,
   }
 
   const hasGstin = Boolean(
@@ -113,7 +121,11 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
 
   const placeOfSupply =
     invoice.placeOfSupply ||
-    (isInterState ? `Inter-State (Code ${customerStateCode})` : `Intra-State (Telangana - 36)`)
+    (isInterState
+      ? `Inter-State (Code ${customerStateCode})`
+      : storeStateCode
+        ? `Intra-State (Code ${storeStateCode})`
+        : 'Intra-State (Local)')
 
   // Total tax computed on discounted taxable amounts
   const computedTaxAmount =
@@ -340,11 +352,18 @@ export const HorizontalInvoice: React.FC<HorizontalInvoiceProps> = ({
         {/* Right: Invoice Title Badge, Details & UPI QR Code (5 cols) */}
         <div className="col-span-5 p-3.5 flex flex-col justify-between">
           <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-            <span className="inline-block border border-slate-900 text-slate-900 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider">
-              {tmpl.invoiceTitle || 'TAX INVOICE'}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block border border-slate-900 text-slate-900 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider">
+                {tmpl.invoiceTitle || 'TAX INVOICE'}
+              </span>
+              {invoice.isEdited && (
+                <span className="inline-flex items-center gap-0.5 bg-amber-500 text-slate-950 font-black text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider shadow-2xs border border-amber-600">
+                  EDITED
+                </span>
+              )}
+            </div>
             <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">
-              Original Copy
+              {invoice.isEdited ? 'Edited Copy' : 'Original Copy'}
             </span>
           </div>
 

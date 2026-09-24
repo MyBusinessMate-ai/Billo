@@ -90,7 +90,7 @@ export const TopNav: React.FC = () => {
 
         <div className="hidden md:flex items-center gap-2 text-on-surface-variant font-mono-numeric-sm text-mono-numeric-sm">
           <span className="material-symbols-outlined text-[16px]">schedule</span>
-          <span>{currentTime || '2024-10-24 14:38:12'}</span>
+          <span>{currentTime || 'Loading clock...'}</span>
         </div>
       </div>
 

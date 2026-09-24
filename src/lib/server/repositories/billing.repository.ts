@@ -97,6 +97,19 @@ export async function updateBillingStatusDoc(billingId: string, status: string):
   })
 }
 
+export async function updateBillingDoc(
+  billingId: string,
+  data: Partial<Billing>
+): Promise<void> {
+  if (!db) throw new Error('Firestore is not initialized')
+  const cleanId = billingId.startsWith('#') ? billingId.slice(1) : billingId
+  const ref = doc(db, COLLECTIONS.BILLINGS, cleanId)
+  await updateDoc(ref, {
+    ...cleanFirestoreData(data),
+    updatedAt: serverTimestamp(),
+  })
+}
+
 export async function updateBillingFormatDoc(billingId: string, invoiceFormat: string): Promise<void> {
   if (!db) return
   const cleanId = billingId.startsWith('#') ? billingId.slice(1) : billingId

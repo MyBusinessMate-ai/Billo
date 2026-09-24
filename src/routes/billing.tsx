@@ -7,6 +7,7 @@ import { CheckoutLedger } from '../components/billing/CheckoutLedger'
 import { ThermalReceiptModal } from '../components/billing/ThermalReceiptModal'
 import type { BillingItem, BillingInvoice } from '../types/pos'
 import { usePOS } from '../context/POSContext'
+import { formatDate, formatTime } from '../utils/formatters'
 
 function playScannerBeep() {
   try {
@@ -346,14 +347,20 @@ function MakeBillingPage() {
         ? paymentDetails.roundOff
         : Math.round((netTotal - exactNetPayable) * 100) / 100
 
-    const storeStateCode = settings.gstin ? settings.gstin.trim().slice(0, 2) : '36'
+    const storeStateCode = settings.gstin ? settings.gstin.trim().slice(0, 2) : ''
     const customerStateCode = customer.gstin ? customer.gstin.trim().slice(0, 2) : storeStateCode
     const isInterState = Boolean(
-      customer.gstin && customerStateCode && customerStateCode !== storeStateCode
+      customer.gstin && customerStateCode && storeStateCode && customerStateCode !== storeStateCode
     )
     const placeOfSupply = isInterState
       ? `Inter-State (Code ${customerStateCode})`
-      : `Intra-State (Telangana - 36)`
+      : storeStateCode
+        ? `Intra-State (Code ${storeStateCode})`
+        : 'Intra-State (Local)'
+
+    const now = new Date()
+    const currentLiveDate = currentDate || formatDate(now)
+    const currentLiveTime = currentTime ? currentTime.split(' ')[1] : formatTime(now)
 
     const newInvoice = addInvoice({
       customer: {
@@ -380,8 +387,10 @@ function MakeBillingPage() {
       internalNote: paymentDetails.internalNote,
       invoiceFormat: paymentDetails.invoiceFormat || settings.invoiceFormat || 'a4',
       status: 'completed',
-      timestamp: currentTime ? currentTime.split(' ')[1] : '14:32:08',
-      date: currentDate || '2024-10-24',
+      termsText: settings.billTemplate?.termsText || '1. Goods once sold can be exchanged within 7 days with original invoice.\n2. Warranty / guarantee as per manufacturer policy.',
+      billTemplateSnapshot: settings.billTemplate ? { ...settings.billTemplate } : undefined,
+      timestamp: currentLiveTime,
+      date: currentLiveDate,
     })
 
     setCreatedInvoice(newInvoice)
@@ -498,7 +507,7 @@ function MakeBillingPage() {
         customer: {
           name: customer.name || 'Priya Sharma (Sample)',
           phone: customer.phone || '+91 98765 43210',
-          email: customer.email || 'priya.sharma@example.com',
+          email: customer.email || undefined,
           isWalkIn: false,
         },
         items: sampleItems,

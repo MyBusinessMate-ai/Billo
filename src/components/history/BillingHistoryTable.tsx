@@ -13,19 +13,23 @@ interface BillingHistoryTableProps {
   onSelectInvoice: (invoice: BillingInvoice) => void
   selectedInvoiceId?: string
   onOpenReceipt: (invoice: BillingInvoice) => void
+  onEditInvoice?: (invoice: BillingInvoice) => void
 }
 
 export const BillingHistoryTable: React.FC<BillingHistoryTableProps> = ({
   onSelectInvoice,
   selectedInvoiceId,
+  onEditInvoice,
 }) => {
   const { invoices, currentDate, showToast } = usePOS()
 
-  const [statusTab] = useState<'all' | 'settled' | 'hold' | 'refund'>('all')
+  const [statusTab, setStatusTab] = useState<'all' | 'settled' | 'edited' | 'refund'>('all')
   const [paymentFilter, setPaymentFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState<DateFilterState>({ type: 'all' })
   const [currentPage, setCurrentPage] = useState(1)
   const rowsPerPage = 7
+
+  const editedCount = invoices.filter((inv) => inv.isEdited).length
 
   // Filtered Invoices based on Date, Payment Rail, and Status
   const filteredInvoices = invoices.filter((inv) => {
@@ -34,11 +38,13 @@ export const BillingHistoryTable: React.FC<BillingHistoryTableProps> = ({
     const matchesStatus =
       statusTab === 'all'
         ? true
-        : statusTab === 'settled'
-          ? inv.status === 'completed'
-          : statusTab === 'refund'
-            ? inv.status === 'refunded'
-            : inv.status === statusTab
+        : statusTab === 'edited'
+          ? Boolean(inv.isEdited)
+          : statusTab === 'settled'
+            ? inv.status === 'completed'
+            : statusTab === 'refund'
+              ? inv.status === 'refunded'
+              : inv.status === statusTab
 
     const matchesPayment =
       paymentFilter === 'all' ||
@@ -131,6 +137,77 @@ export const BillingHistoryTable: React.FC<BillingHistoryTableProps> = ({
         {/* Filter Control Bar */}
         <div className="flex flex-wrap items-center justify-between gap-pad-sm pt-pad-xs border-t border-outline-variant/20">
           <div className="flex flex-wrap items-center gap-2">
+            {/* Status Filter Tabs (All, Settled, Edited, Refunded) */}
+            <div className="flex items-center bg-surface-container-low p-0.5 rounded-DEFAULT border border-outline-variant/30 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusTab('all')
+                  setCurrentPage(1)
+                }}
+                className={`px-3 py-1.5 rounded-DEFAULT font-semibold transition-colors cursor-pointer ${
+                  statusTab === 'all'
+                    ? 'bg-secondary text-on-secondary shadow-xs'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusTab('settled')
+                  setCurrentPage(1)
+                }}
+                className={`px-3 py-1.5 rounded-DEFAULT font-semibold transition-colors cursor-pointer ${
+                  statusTab === 'settled'
+                    ? 'bg-secondary text-on-secondary shadow-xs'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                Settled
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusTab('edited')
+                  setCurrentPage(1)
+                }}
+                className={`px-3 py-1.5 rounded-DEFAULT font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  statusTab === 'edited'
+                    ? 'bg-secondary text-on-secondary shadow-xs'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                <span>Edited</span>
+                {editedCount > 0 && (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                      statusTab === 'edited'
+                        ? 'bg-on-secondary text-secondary'
+                        : 'bg-amber-500/20 text-amber-700 dark:text-amber-400'
+                    }`}
+                  >
+                    {editedCount}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusTab('refund')
+                  setCurrentPage(1)
+                }}
+                className={`px-3 py-1.5 rounded-DEFAULT font-semibold transition-colors cursor-pointer ${
+                  statusTab === 'refund'
+                    ? 'bg-secondary text-on-secondary shadow-xs'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                Refunded
+              </button>
+            </div>
+
             {/* Date Preset & Custom Range Dropdown Filter */}
             <DateRangeFilter
               filter={dateFilter}
@@ -179,7 +256,7 @@ export const BillingHistoryTable: React.FC<BillingHistoryTableProps> = ({
                 <th className="py-2.5 px-pad-md font-medium">Payment Rail</th>
                 <th className="py-2.5 px-pad-md font-medium">Timestamp</th>
                 <th className="py-2.5 px-pad-md font-medium">Status</th>
-                <th className="py-2.5 px-pad-md font-medium text-right">Audit</th>
+                <th className="py-2.5 px-pad-md font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/20 font-body-sm text-body-sm">
@@ -212,8 +289,16 @@ export const BillingHistoryTable: React.FC<BillingHistoryTableProps> = ({
                       } ${isRefunded ? 'opacity-70 bg-surface-container-low/30' : ''}`}
                     >
                       <td className="py-3 px-pad-md font-mono-numeric-sm font-semibold text-on-surface">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span>{inv.id}</span>
+                          {inv.isEdited && (
+                            <span
+                              className="inline-flex items-center gap-0.5 bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[9px] font-bold px-1.5 py-0.2 rounded uppercase tracking-wider shrink-0"
+                              title={`Edited: ${inv.editedAt || ''}`}
+                            >
+                              EDITED
+                            </span>
+                          )}
                           {inv.internalNote && (
                             <span
                               className="material-symbols-outlined text-[15px] text-amber-600 dark:text-amber-400 cursor-help shrink-0"
@@ -254,16 +339,32 @@ export const BillingHistoryTable: React.FC<BillingHistoryTableProps> = ({
                         </span>
                       </td>
                       <td className="py-3 px-pad-md text-right">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onSelectInvoice(inv)
-                          }}
-                          className="p-1 hover:bg-surface-container rounded-DEFAULT text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">visibility</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          {onEditInvoice && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onEditInvoice(inv)
+                              }}
+                              className="p-1 hover:bg-surface-container rounded-DEFAULT text-on-surface-variant hover:text-secondary transition-colors cursor-pointer"
+                              title="Edit bill"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onSelectInvoice(inv)
+                            }}
+                            className="p-1 hover:bg-surface-container rounded-DEFAULT text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+                            title="View details"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">visibility</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )

@@ -10,6 +10,7 @@ interface InvoiceDetailsDrawerProps {
   isOpen: boolean
   onClose: () => void
   onOpenReceipt: (invoice: BillingInvoice) => void
+  onEditInvoice?: (invoice: BillingInvoice) => void
 }
 
 export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
@@ -17,6 +18,7 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
   isOpen,
   onClose,
   onOpenReceipt,
+  onEditInvoice,
 }) => {
   const { invoices, showToast, settings, deleteInvoice } = usePOS()
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
@@ -148,6 +150,17 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
               </span>
             </div>
             <div className="flex items-center gap-1">
+              {onEditInvoice && (
+                <button
+                  type="button"
+                  onClick={() => onEditInvoice(invoice)}
+                  className="p-1.5 text-on-surface-variant hover:text-secondary hover:bg-secondary-container/20 rounded-DEFAULT transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                  title="Edit this bill"
+                >
+                  <span className="material-symbols-outlined text-[18px]">edit</span>
+                  <span>Edit</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsConfirmingDelete(true)}
@@ -172,6 +185,12 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
               <span className="font-mono-numeric-lg text-title-lg font-bold text-on-surface">
                 {displayInvoiceId}
               </span>
+              {invoice.isEdited && (
+                <span className="inline-flex items-center gap-1 bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+                  <span className="material-symbols-outlined text-[13px]">edit_note</span>
+                  EDITED
+                </span>
+              )}
               <button
                 type="button"
                 onClick={handleCopyId}
@@ -181,6 +200,11 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
                 <span className="material-symbols-outlined text-[15px]">content_copy</span>
               </button>
             </div>
+            {invoice.isEdited && invoice.editedAt && (
+              <span className="text-[11px] text-on-surface-variant font-mono">
+                Edited: {invoice.editedAt}
+              </span>
+            )}
           </div>
         </div>
 
@@ -213,7 +237,7 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
                 <div className="flex items-center gap-1.5 text-on-surface-variant">
                   <span className="material-symbols-outlined text-[16px]">mail</span>
                   <span className="font-body-sm text-body-sm text-on-surface truncate">
-                    {invoice.customer.email || 'guest@ledgerpos.store'}
+                    {invoice.customer.email || '—'}
                   </span>
                 </div>
               </div>
@@ -433,6 +457,16 @@ export const InvoiceDetailsDrawer: React.FC<InvoiceDetailsDrawerProps> = ({
 
         {/* Drawer Fixed Footer Action Buttons */}
         <div className="p-pad-md bg-surface-container-low flex flex-col gap-2.5 border-t border-outline-variant/30">
+          {onEditInvoice && (
+            <button
+              type="button"
+              onClick={() => onEditInvoice(invoice)}
+              className="w-full flex items-center justify-center gap-2 bg-secondary text-on-secondary hover:bg-on-secondary-container p-2.5 min-h-[42px] rounded-DEFAULT font-label-md text-label-md font-semibold transition-all shadow-sm cursor-pointer active:scale-[0.99]"
+            >
+              <span className="material-symbols-outlined text-[20px]">edit_note</span>
+              <span>Edit Bill Details</span>
+            </button>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"

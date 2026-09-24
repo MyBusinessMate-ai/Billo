@@ -151,6 +151,39 @@ export function getBillingItemDisplayName(item: {
   return item.categoryName
 }
 
+export const BillTemplateSchema = z.object({
+  invoiceTitle: z.string().optional(),
+  invoiceSubtitle: z.string().optional(),
+  showLogo: z.boolean().optional(),
+  showAddress: z.boolean().optional(),
+  showPhone: z.boolean().optional(),
+  showEmail: z.boolean().optional(),
+  showGstin: z.boolean().optional(),
+  showCustomerPhone: z.boolean().optional(),
+  showCustomerEmail: z.boolean().optional(),
+  showCategory: z.boolean().optional(),
+  showHsn: z.boolean().optional(),
+  showDiscount: z.boolean().optional(),
+  showTaxBreakdown: z.boolean().optional(),
+  showAmountInWords: z.boolean().optional(),
+  showShipTo: z.boolean().optional(),
+  showRemarks: z.boolean().optional(),
+  showQrCode: z.boolean().optional(),
+  showTerms: z.boolean().optional(),
+  termsText: z.string().optional(),
+  showCustomerSignature: z.boolean().optional(),
+  showAuthorizedSignatory: z.boolean().optional(),
+  signatoryText: z.string().optional(),
+  showFooterNotice: z.boolean().optional(),
+  footerNotice: z.string().optional(),
+  itemLabel: z.string().optional(),
+  qtyLabel: z.string().optional(),
+  rateLabel: z.string().optional(),
+  totalLabel: z.string().optional(),
+})
+
+export type BillTemplate = z.infer<typeof BillTemplateSchema>
+
 export const BillingSchema = z.object({
   billingId: BillingIdSchema,
   customerId: CustomerIdSchema.optional(),
@@ -171,6 +204,12 @@ export const BillingSchema = z.object({
   billMode: BillingModeSchema,
   invoiceFormat: z.enum(['thermal', 'a4']).optional(),
   internalNote: z.string().optional(),
+  isEdited: z.boolean().optional(),
+  editedAt: FirestoreTimestampSchema.optional(),
+  termsText: z.string().optional(),
+  billTemplateSnapshot: BillTemplateSchema.optional(),
+  invoiceDate: z.string().optional(),
+  invoiceTime: z.string().optional(),
   createdAt: FirestoreTimestampSchema,
   updatedAt: FirestoreTimestampSchema,
 })
@@ -267,39 +306,6 @@ export const QrSettingsSchema = z.object({
 })
 
 export type QrSettings = z.infer<typeof QrSettingsSchema>
-
-export const BillTemplateSchema = z.object({
-  invoiceTitle: z.string().optional(),
-  invoiceSubtitle: z.string().optional(),
-  showLogo: z.boolean().optional(),
-  showAddress: z.boolean().optional(),
-  showPhone: z.boolean().optional(),
-  showEmail: z.boolean().optional(),
-  showGstin: z.boolean().optional(),
-  showCustomerPhone: z.boolean().optional(),
-  showCustomerEmail: z.boolean().optional(),
-  showCategory: z.boolean().optional(),
-  showHsn: z.boolean().optional(),
-  showDiscount: z.boolean().optional(),
-  showTaxBreakdown: z.boolean().optional(),
-  showAmountInWords: z.boolean().optional(),
-  showShipTo: z.boolean().optional(),
-  showRemarks: z.boolean().optional(),
-  showQrCode: z.boolean().optional(),
-  showTerms: z.boolean().optional(),
-  termsText: z.string().optional(),
-  showCustomerSignature: z.boolean().optional(),
-  showAuthorizedSignatory: z.boolean().optional(),
-  signatoryText: z.string().optional(),
-  showFooterNotice: z.boolean().optional(),
-  footerNotice: z.string().optional(),
-  itemLabel: z.string().optional(),
-  qtyLabel: z.string().optional(),
-  rateLabel: z.string().optional(),
-  totalLabel: z.string().optional(),
-})
-
-export type BillTemplate = z.infer<typeof BillTemplateSchema>
 
 export const SettingsSchema = z.object({
   storeName: z.string().min(1, 'Store name is required'),

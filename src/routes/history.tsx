@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { AppLayout } from '../components/layout/AppLayout'
 import { BillingHistoryTable } from '../components/history/BillingHistoryTable'
 import { InvoiceDetailsDrawer } from '../components/history/InvoiceDetailsDrawer'
+import { EditInvoiceModal } from '../components/history/EditInvoiceModal'
 import { ThermalReceiptModal } from '../components/billing/ThermalReceiptModal'
 import type { BillingInvoice } from '../types/pos'
 import { usePOS } from '../context/POSContext'
@@ -20,6 +21,8 @@ function BillingHistoryPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [printInvoice, setPrintInvoice] = useState<BillingInvoice | null>(null)
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false)
+  const [editingInvoice, setEditingInvoice] = useState<BillingInvoice | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   const handleSelectInvoice = (inv: BillingInvoice) => {
     setSelectedInvoice(inv)
@@ -31,12 +34,24 @@ function BillingHistoryPage() {
     setIsReceiptModalOpen(true)
   }
 
+  const handleOpenEdit = (inv: BillingInvoice) => {
+    setEditingInvoice(inv)
+    setIsEditModalOpen(true)
+  }
+
+  const handleInvoiceSaved = (updated: BillingInvoice) => {
+    if (selectedInvoice && (selectedInvoice.id === updated.id || selectedInvoice.id === `#${updated.id}`)) {
+      setSelectedInvoice(updated)
+    }
+  }
+
   return (
     <AppLayout>
       <BillingHistoryTable
         onSelectInvoice={handleSelectInvoice}
         selectedInvoiceId={selectedInvoice?.id}
         onOpenReceipt={handleOpenReceipt}
+        onEditInvoice={handleOpenEdit}
       />
 
       {/* Invoice Details Drawer */}
@@ -45,6 +60,18 @@ function BillingHistoryPage() {
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         onOpenReceipt={handleOpenReceipt}
+        onEditInvoice={handleOpenEdit}
+      />
+
+      {/* Edit Bill Modal */}
+      <EditInvoiceModal
+        invoice={editingInvoice}
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setEditingInvoice(null)
+        }}
+        onSaved={handleInvoiceSaved}
       />
 
       {/* Thermal Receipt Print Modal */}

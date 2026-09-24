@@ -71,8 +71,6 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     showRemarks: true,
     showQrCode: true,
     showTerms: true,
-    termsText:
-      '1. Goods once sold can be exchanged within 7 days with original invoice.\n2. Warranty / guarantee as per manufacturer policy.',
     showCustomerSignature: false,
     showAuthorizedSignatory: true,
     signatoryText: `For ${settings.storeName || settings.businessName || 'Store Outlet'}`,
@@ -83,7 +81,15 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
     rateLabel: 'Price',
     totalLabel: 'Total',
     ...(settings.billTemplate || {}),
+    ...(invoice?.billTemplateSnapshot || {}),
     ...(templateOverride || {}),
+    termsText:
+      invoice?.termsText !== undefined && invoice?.termsText !== null
+        ? invoice.termsText
+        : invoice?.billTemplateSnapshot?.termsText !== undefined && invoice?.billTemplateSnapshot?.termsText !== null
+          ? invoice.billTemplateSnapshot.termsText
+          : (settings.billTemplate?.termsText ||
+            '1. Goods once sold can be exchanged within 7 days with original invoice.\n2. Warranty / guarantee as per manufacturer policy.'),
   }
 
   if (!isOpen || !invoice) return null
@@ -361,11 +367,16 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                 {/* Bill Details & Customer Details */}
                 <div className="py-3 border-b border-dashed border-slate-300 text-[11px] space-y-2">
                   <div className="flex justify-between items-center">
-                    <div>
+                    <div className="flex items-center gap-1.5">
                       <span className="text-slate-500">Invoice No:</span>{' '}
                       <span className="font-bold font-mono text-slate-950">
                         {formattedInvoiceNo}
                       </span>
+                      {invoice.isEdited && (
+                        <span className="bg-amber-500 text-slate-950 font-black text-[8.5px] px-1 py-0.2 rounded uppercase tracking-wider">
+                          EDITED
+                        </span>
+                      )}
                     </div>
                     <div className="text-right">
                       <span className="text-slate-500">Date:</span> <span>{invoice.date}</span>
