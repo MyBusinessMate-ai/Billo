@@ -520,7 +520,8 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
             <div className="flex items-center justify-between text-secondary">
               <div className="flex items-center gap-1.5">
                 <span className="font-label-md text-label-md font-medium">
-                  Bill Discount ({discountType === 'percent' ? `${parsedDiscountVal}%` : 'Direct ₹'})
+                  Bill Discount ({discountType === 'percent' ? `${parsedDiscountVal}%` : 'Direct ₹'}
+                  )
                 </span>
                 <button
                   type="button"
@@ -919,7 +920,9 @@ export const CheckoutLedger: React.FC<CheckoutLedgerProps> = ({
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              <span className="material-symbols-outlined text-[14px] text-secondary">description</span>
+              <span className="material-symbols-outlined text-[14px] text-secondary">
+                description
+              </span>
               <span>Letter / A4</span>
             </button>
             <button

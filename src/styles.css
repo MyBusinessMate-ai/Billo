@@ -377,11 +377,29 @@ kbd {
 
   #printable-horizontal-invoice {
     box-shadow: none !important;
-    border: 2px solid #000000 !important;
+    border: none !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
-    padding: 12px !important;
+    padding: 0 !important;
+  }
+
+  .invoice-page {
+    box-shadow: none !important;
+    border: 2px solid #000000 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 10.15in !important;
+    height: 10.15in !important;
+    margin: 0 auto !important;
+    padding: 14px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .invoice-page:not(:last-child) {
+    page-break-after: always !important;
+    break-after: page !important;
   }
 
   .thermal-receipt {

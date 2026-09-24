@@ -164,7 +164,9 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   const exactNet = Math.max(0, finalTaxableValue + taxAmount)
   const netTotal = invoice.netTotal || Math.round(exactNet)
   const roundOff =
-    invoice.roundOff !== undefined ? invoice.roundOff : Math.round((netTotal - exactNet) * 100) / 100
+    invoice.roundOff !== undefined
+      ? invoice.roundOff
+      : Math.round((netTotal - exactNet) * 100) / 100
 
   const isUpiPayment = Boolean(
     invoice.paymentMethod?.toLowerCase().includes('upi') ||
@@ -275,7 +277,9 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <span className="material-symbols-outlined text-[16px] text-teal-600">description</span>
+                <span className="material-symbols-outlined text-[16px] text-teal-600">
+                  description
+                </span>
                 <span>Letter / A4 Full Size</span>
               </button>
               <button
@@ -287,7 +291,9 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <span className="material-symbols-outlined text-[16px] text-slate-700">receipt</span>
+                <span className="material-symbols-outlined text-[16px] text-slate-700">
+                  receipt
+                </span>
                 <span>80mm Thermal Slip</span>
               </button>
             </div>
@@ -528,11 +534,15 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                     ) : (
                       <>
                         <div className="flex justify-between">
-                          <span className="text-slate-500">CGST ({(fallbackTaxPercent / 2).toFixed(1)}%):</span>
+                          <span className="text-slate-500">
+                            CGST ({(fallbackTaxPercent / 2).toFixed(1)}%):
+                          </span>
                           <span>₹{halfTaxAmount.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-500">SGST ({(fallbackTaxPercent / 2).toFixed(1)}%):</span>
+                          <span className="text-slate-500">
+                            SGST ({(fallbackTaxPercent / 2).toFixed(1)}%):
+                          </span>
                           <span>₹{halfTaxAmount.toFixed(2)}</span>
                         </div>
                       </>
@@ -540,7 +550,8 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                   ) : hasTax ? (
                     <div className="flex justify-between">
                       <span className="text-slate-500">
-                        {isInterState ? 'IGST' : 'GST'} {hasItemGst ? '(Itemized)' : `(${fallbackTaxPercent}%)`}:
+                        {isInterState ? 'IGST' : 'GST'}{' '}
+                        {hasItemGst ? '(Itemized)' : `(${fallbackTaxPercent}%)`}:
                       </span>
                       <span>₹{taxAmount.toFixed(2)}</span>
                     </div>
@@ -550,7 +561,9 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                     <div className="flex justify-between text-slate-600">
                       <span className="text-slate-500">Round Off:</span>
                       <span className="font-mono font-semibold">
-                        {roundOff > 0 ? `+₹${roundOff.toFixed(2)}` : `-₹${Math.abs(roundOff).toFixed(2)}`}
+                        {roundOff > 0
+                          ? `+₹${roundOff.toFixed(2)}`
+                          : `-₹${Math.abs(roundOff).toFixed(2)}`}
                       </span>
                     </div>
                   )}
